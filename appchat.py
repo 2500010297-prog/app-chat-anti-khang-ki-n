@@ -75,8 +75,8 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD
-SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
+# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ SỬA CHUẨN URL KẾT NỐI)
+SUPABASE_URL = "https://mrsqzgghcijgujaerdxp.supabase.co".strip()
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yc3F6Z2doY2lqZ3VqYWVyZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzQwNjEsImV4cCI6MjEwMzQxMDA2MX0.UQ2s9VRtnPW9EqzPPW4Ywx3blCG3d1OeSM3WJ23CEmA".strip()
 
 supabase_client = None
@@ -85,7 +85,7 @@ try:
 except Exception:
     pass
 
-# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ CLOUD (CÓ BẢO VỆ NGUỒN KẾT NỐI)
+# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ CLOUD
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -257,7 +257,7 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP (BẢO VỆ CHỐNG SẬP KHI GỬI)
+# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
