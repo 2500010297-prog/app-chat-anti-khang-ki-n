@@ -8,7 +8,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN & CHỐNG GIẬT SCROLL
+# 1. CẤU HÌNH GIAO DIỆN CYBER DARK
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -50,8 +50,6 @@ st.markdown(
         border-radius: 4px;
         font-weight: bold;
     }
-
-    /* CHỈ ĐỔI MÀU CHỮ BẢN DỊCH & GIẢI MÃ THÀNH MÀU TRẮNG */
     div[data-testid="stAlert"] {
         background-color: #1e293b !important;
         border: 1px solid #38bdf8 !important;
@@ -59,6 +57,13 @@ st.markdown(
     div[data-testid="stAlert"] p, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div {
         color: #ffffff !important;
         font-weight: 500 !important;
+    }
+    button[data-testid="stPopoverButton"] {
+        background-color: #0284c7 !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-weight: bold !important;
     }
 </style>
 """,
@@ -125,7 +130,7 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHỞI TẠO BỘ NHỚ TẠM THỜI
+# 5. KHỞI TẠO BỘ NHỚ TẠM
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -138,7 +143,7 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# 6. SIDEBAR - ĐỔI AVATAR TẬN DỤNG NÉN ẢNH SIÊU NHẸ
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -171,7 +176,7 @@ if avatar_type == "Emoji có sẵn":
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
     if uploaded_avatar:
         try:
@@ -195,70 +200,11 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s & Tốc độ cao.")
+st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s siêu tốc.")
 st.divider()
 
-# 8. GỬI MEDIA MÃ HÓA (NÉN TỰ ĐỘNG CHỐNG TRỄ MẠNG)
-with st.expander(
-    "📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"
-):
-    file_upload = st.file_uploader(
-        "Chọn file đính kèm (Ảnh/Video/Tệp):", key="media_uploader"
-    )
-    if st.button("📤 Gửi File Mã Hóa", use_container_width=True):
-        if file_upload is not None:
-            mime = file_upload.type
-            media_kind = "file"
-            if "image" in mime:
-                media_kind = "image"
-            elif "video" in mime:
-                media_kind = "video"
 
-            file_bytes = file_upload.read()
-
-            if media_kind == "image":
-                try:
-                    img = Image.open(BytesIO(file_bytes))
-                    img.thumbnail((1280, 1280))
-                    buf = BytesIO()
-                    img.save(buf, format="JPEG", quality=75)
-                    file_bytes = buf.getvalue()
-                    mime = "image/jpeg"
-                except Exception:
-                    pass
-
-            if len(file_bytes) > 3 * 1024 * 1024:
-                st.error("❌ Dung lượng file quá 3MB, vui lòng giảm kích thước.")
-            else:
-                b64_file = base64.b64encode(file_bytes).decode("utf-8")
-                cipher_file = encrypt_proportional(
-                    b64_file, st.session_state.e2ee_key
-                )
-
-                msg_data = {
-                    "sender_name": user_name,
-                    "avatar": user_avatar,
-                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
-                    "raw_cipher_media": cipher_file,
-                    "media_kind": media_kind,
-                    "file_name": file_upload.name,
-                    "mime_type": mime,
-                    "tagged_user": "",
-                }
-
-                if supabase_client:
-                    try:
-                        supabase_client.table("messages").insert(
-                            msg_data
-                        ).execute()
-                        st.success("✅ Gửi Media thành công!")
-                    except Exception:
-                        st.error("❌ Lỗi gửi file lên cơ sở dữ liệu.")
-
-                st.rerun()
-
-
-# 9. CHAT STREAM ĐỒNG BỘ NGHỆ AN 1 GIÂY (RUN_EVERY=1 - SIÊU MƯỢT)
+# 8. DÒNG PHẢN HỒI TIN NHẮN (ĐỒNG BỘ 1S)
 @st.fragment(run_every=1)
 def render_chat_stream():
     db_messages = []
@@ -390,7 +336,66 @@ def render_chat_stream():
 
 render_chat_stream()
 
-# 10. Ô NHẬP TIN NHẮN TẬP TRUNG GỬI NGẦM KHÔNG DELAY
+# 9. NÚT ĐÍNH KÈM MEDIA DẠNG POPOVER ĐẶT NGAY TRÊN KHUNG CHAT
+with st.popover(
+    "📎 **Gửi Ảnh, Video hoặc File (Mã hóa E2EE)**", use_container_width=True
+):
+    file_upload = st.file_uploader(
+        "Chọn file từ thiết bị:", key="media_uploader_popover"
+    )
+    if st.button("📤 Tải Lên & Gửi Ngay", use_container_width=True):
+        if file_upload is not None:
+            mime = file_upload.type
+            media_kind = "file"
+            if "image" in mime:
+                media_kind = "image"
+            elif "video" in mime:
+                media_kind = "video"
+
+            file_bytes = file_upload.read()
+
+            if media_kind == "image":
+                try:
+                    img = Image.open(BytesIO(file_bytes))
+                    img.thumbnail((1280, 1280))
+                    buf = BytesIO()
+                    img.save(buf, format="JPEG", quality=75)
+                    file_bytes = buf.getvalue()
+                    mime = "image/jpeg"
+                except Exception:
+                    pass
+
+            if len(file_bytes) > 3 * 1024 * 1024:
+                st.error("❌ Dung lượng file quá 3MB!")
+            else:
+                b64_file = base64.b64encode(file_bytes).decode("utf-8")
+                cipher_file = encrypt_proportional(
+                    b64_file, st.session_state.e2ee_key
+                )
+
+                msg_data = {
+                    "sender_name": user_name,
+                    "avatar": user_avatar,
+                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
+                    "raw_cipher_media": cipher_file,
+                    "media_kind": media_kind,
+                    "file_name": file_upload.name,
+                    "mime_type": mime,
+                    "tagged_user": "",
+                }
+
+                if supabase_client:
+                    try:
+                        supabase_client.table("messages").insert(
+                            msg_data
+                        ).execute()
+                        st.success("✅ Gửi Media thành công!")
+                    except Exception:
+                        st.error("❌ Lỗi kết nối Cloud.")
+
+                st.rerun()
+
+# 10. KHUNG NHẬP TIN NHẮN CHÍNH
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
@@ -404,10 +409,8 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
         "tagged_user": tagged_str,
     }
 
-    # Hiển thị tức thì local (0.01s)
     st.session_state.optimistic_msgs.append(msg_data)
 
-    # Đẩy ngầm Cloud qua thread phụ
     threading.Thread(
         target=async_send_to_supabase, args=(msg_data,), daemon=True
     ).start()
