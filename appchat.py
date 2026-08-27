@@ -6,7 +6,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN HIGH-CONTRAST (CHỐNG TRÙNG MÀU NỀN)
+# 1. CẤU HÌNH GIAO DIỆN (ĐÃ KHÔI PHÚC MÀU CŨ, CHỈ CHỈNH MÀU Ô DỊCH)
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -14,66 +14,50 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    /* Nền ứng dụng */
+    /* Trả lại màu nền Gradient Cyber Dark ban đầu */
     .stApp {
-        background: #0b0f19 !important;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
     }
     
-    /* Chữ hiển thị trong Chat & Markdown */
-    .stMarkdown, p, span, label {
-        color: #f8fafc !important;
-    }
-    
-    /* Khối mã hóa Text / Code block (Chữ xanh Cyan tương phản cao) */
-    code, pre {
-        background-color: #161e2e !important;
-        color: #00f2fe !important;
-        font-weight: 600 !important;
-        border: 1px solid #1e293b !important;
-    }
-    
-    /* Ô nhập tin nhắn */
+    /* Ô nhập tin nhắn ban đầu */
     div[data-testid="stChatInput"] textarea {
-        color: #ffffff !important;
-        background-color: #1e293b !important;
+        color: #0f172a !important;
+        background-color: #f1f5f9 !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
     }
     div[data-testid="stChatInput"] {
-        border: 1.5px solid #38bdf8 !important;
+        border: 1px solid #38bdf8 !important;
         border-radius: 12px !important;
-        background-color: #1e293b !important;
     }
-    
-    /* Ô nhập Sidebar */
     .stTextInput input {
         background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #475569 !important;
+        color: #f8fafc !important;
     }
     
-    /* Thông báo Info / Success (Chữ trắng rõ ràng) */
-    div[data-testid="stNotification"] {
-        background-color: #1e293b !important;
-        border: 1px solid #38bdf8 !important;
-    }
-    div[data-testid="stNotification"] p {
-        color: #ffffff !important;
-    }
-
     .sender-name {
-        color: #38bdf8 !important;
+        color: #38bdf8;
         font-weight: bold;
         font-size: 1.05rem;
         margin-bottom: 4px;
     }
     .tag-inline {
         background-color: #0284c7;
-        color: #ffffff !important;
+        color: #ffffff;
         padding: 2px 6px;
         border-radius: 4px;
         font-weight: bold;
+    }
+
+    /* CHỈ ĐỔI MÀU CHỮ & NỀN CHO RIÊNG PHẦN GIẢI MÃ & BẢN DỊCH */
+    div[data-testid="stAlert"] {
+        background-color: #1e293b !important;
+        border: 1px solid #38bdf8 !important;
+    }
+    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div {
+        color: #ffffff !important;
+        font-weight: 500 !important;
     }
 </style>
 """,
