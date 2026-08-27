@@ -8,13 +8,31 @@ st.set_page_config(
     page_title="E2EE Secure Chat", page_icon="🔒", layout="centered"
 )
 
+# SỬA LỖI CHỮ TÀNG HÌNH TRÊN Ô NHẬP CHAT
 st.markdown(
     """
 <style>
+    /* Nền ứng dụng Slate Navy */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
     }
+    
+    /* Sửa trực tiếp ô nhập tin nhắn st.chat_input để chữ luôn rõ nét */
+    div[data-testid="stChatInput"] textarea {
+        color: #0f172a !important; /* Chữ màu tối đậm rõ ràng */
+        background-color: #f1f5f9 !important; /* Nền sáng phản quan */
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Viền ô nhập tin nhắn */
+    div[data-testid="stChatInput"] {
+        border: 1px solid #38bdf8 !important;
+        border-radius: 12px !important;
+    }
+
+    /* Định dạng ô chọn ở Sidebar */
     .stTextInput input, div[data-baseweb="select"] {
         background-color: #1e293b !important;
         color: #f8fafc !important;
@@ -56,17 +74,34 @@ if "e2ee_key" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 4. THANH SIDEBAR TÙY CHỈNH BIỆT DANH & AVATAR
+# 4. THANH SIDEBAR: TÙY CHỈNH & THÔNG TIN TÁC GIẢ
 st.sidebar.title("⚙️ Thẻ Định Danh")
-user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
+user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="AI Bot User")
+
+# Bổ sung các Icon AI Chatbot
 user_avatar = st.sidebar.selectbox(
-    "🎭 Chọn Avatar (Emoji):",
-    ["🥷", "🤖", "🦊", "👑", "⚡", "👽", "🐯", "😎"],
+    "🎭 Chọn Avatar (Có AI Chatbot):",
+    [
+        "🤖",
+        "👾",
+        "🧠",
+        "🔮",
+        "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
+        "🥷",
+        "🦊",
+        "👑",
+    ],
     index=0,
 )
 
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
+
+# THÔNG TIN TÁC GIẢ & HỖ TRỢ
+st.sidebar.markdown("---")
+st.sidebar.markdown("### 👨‍💻 Thông tin hỗ trợ")
+st.sidebar.markdown("**Tác giả:** N.Đ.K")
+st.sidebar.markdown("✉️ **Email:** `nguyenkhoa130597@gmail.com`")
 
 # 5. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 E2EE Cyber Chat")
@@ -76,7 +111,7 @@ st.divider()
 # 6. HIỂN THỊ DANH SÁCH TIN NHẮN
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
-        msg["sender_name"], avatar=msg.get("avatar", "👤")
+        msg["sender_name"], avatar=msg.get("avatar", "🤖")
     ):
         # HIỂN THỊ CHUỖI MÃ HÓA NGẮN/DÀI TƯƠNG ỨNG
         st.code(msg["cipher_text"], language="text")
@@ -86,13 +121,13 @@ for idx, msg in enumerate(st.session_state.messages):
         with col1:
             if st.button(f"🔓 Giải mã & Dịch", key=f"btn_{idx}"):
                 if not msg["decrypted_text"]:
-                    # Bước 1: Giải mã
+                    # Giải mã
                     dec = decrypt_proportional(
                         msg["cipher_text"], st.session_state.e2ee_key
                     )
                     msg["decrypted_text"] = dec
 
-                    # Bước 2: Dịch tự động
+                    # Dịch tự động
                     try:
                         translated = GoogleTranslator(
                             source="auto", target="vi"
@@ -111,8 +146,7 @@ for idx, msg in enumerate(st.session_state.messages):
                 st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
 # 7. Ô NHẬP TIN NHẮN MỚI
-if user_input := st.chat_input("Nhập tin nhắn (Ví dụ: Hi hoặc Hello World)..."):
-    # Mã hóa với độ dài tương ứng trực tiếp
+if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
     cipher_text = encrypt_proportional(
         user_input, st.session_state.e2ee_key
     )
