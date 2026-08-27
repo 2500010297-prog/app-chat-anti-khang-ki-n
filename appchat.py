@@ -6,7 +6,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN CYBER DARK
+# 1. CẤU HÌNH GIAO DIỆN LIGHTWEIGHT FOR MOBILE
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -51,7 +51,7 @@ st.markdown(
 )
 
 
-# 2. THUẬT TOÁN MÃ HÓA E2EE
+# 2. THUẬT TOÁN MÃ HÓA E2EE TỐI ƯU TỐC ĐỘ
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -75,35 +75,30 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ SỬA CHUẨN URL KẾT NỐI)
+# 3. KẾT NỐI SUPABASE CÓ CACHE (CHỐNG LAG MOBILE)
 SUPABASE_URL = "https://mrsqzgghcijgujaerdxp.supabase.co".strip()
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yc3F6Z2doY2lqZ3VqYWVyZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzQwNjEsImV4cCI6MjEwMzQxMDA2MX0.UQ2s9VRtnPW9EqzPPW4Ywx3blCG3d1OeSM3WJ23CEmA".strip()
 
-supabase_client = None
-try:
-    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception:
-    pass
 
-# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ CLOUD
+@st.cache_resource
+def init_supabase():
+    try:
+        return create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        return None
+
+
+supabase_client = init_supabase()
+
+# 4. KHỞI TẠO BỘ NHỚ ĐỆM ĐỘC LẬP
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "decrypted_cache" not in st.session_state:
+    st.session_state.decrypted_cache = {}
 
-if supabase_client:
-    try:
-        res = (
-            supabase_client.table("messages")
-            .select("*")
-            .order("id", desc=False)
-            .execute()
-        )
-        if res.data:
-            st.session_state.messages = res.data
-    except Exception:
-        st.warning("⚠️ Đang mất kết nối Cloud. Ứng dụng chạy chế độ tạm thời.")
+if "expanded_msgs" not in st.session_state:
+    st.session_state.expanded_msgs = set()
 
 # 5. THANH SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
@@ -132,7 +127,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag & Bảo vệ kết nối.")
+st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time PC & Mobile.")
 st.divider()
 
 # 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
@@ -170,101 +165,125 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
                 "tagged_user": "",
             }
 
-            saved_to_cloud = False
             if supabase_client:
                 try:
                     supabase_client.table("messages").insert(msg_data).execute()
-                    saved_to_cloud = True
                 except Exception:
                     pass
-            
-            if not saved_to_cloud:
-                st.session_state.messages.append(msg_data)
-
             st.rerun()
 
-# 8. HIỂN THỊ DANH SÁCH TIN NHẮN
-for idx, msg in enumerate(st.session_state.messages):
-    with st.chat_message(
-        msg.get("sender_name", "user"), avatar=msg.get("avatar", "🤖")
-    ):
-        sender = msg.get("sender_name", "Ẩn danh")
-        st.markdown(
-            f'<div class="sender-name">👤 {sender}</div>',
-            unsafe_allow_html=True,
-        )
 
-        st.code(msg["cipher_text"], language="text")
-
-        col1, col2 = st.columns([1.5, 3])
-        with col1:
-            btn_label = (
-                "🔓 Giải mã Media"
-                if "raw_cipher_media" in msg and msg["raw_cipher_media"]
-                else "🔓 Giải mã & Dịch"
+# 8. KHU VỰC HIỂN THỊ TIN NHẮN TỰ ĐỘNG ĐỒNG BỘ (RUN EVERY 3S)
+@st.fragment(run_every=3)
+def render_chat_stream():
+    messages = []
+    if supabase_client:
+        try:
+            res = (
+                supabase_client.table("messages")
+                .select("*")
+                .order("id", desc=False)
+                .execute()
             )
-            if st.button(btn_label, key=f"btn_{idx}"):
-                if "raw_cipher_media" in msg and msg["raw_cipher_media"]:
-                    if msg.get("decrypted_media") is None:
-                        dec_b64 = decrypt_proportional(
-                            msg["raw_cipher_media"], st.session_state.e2ee_key
-                        )
-                        msg["decrypted_media"] = base64.b64decode(
-                            dec_b64.encode("utf-8")
-                        )
-                else:
-                    if not msg.get("decrypted_text"):
-                        dec = decrypt_proportional(
-                            msg["cipher_text"], st.session_state.e2ee_key
-                        )
-                        msg["decrypted_text"] = dec
-                        try:
-                            msg["translated_text"] = GoogleTranslator(
-                                source="auto", target="vi"
-                            ).translate(dec)
-                        except Exception:
-                            msg["translated_text"] = dec
+            if res.data:
+                messages = res.data
+        except Exception:
+            pass
 
-                msg["show_trans"] = not msg.get("show_trans", False)
+    for msg in messages:
+        msg_id = msg.get("id") or msg.get("cipher_text")
+        sender = msg.get("sender_name", "Ẩn danh")
+        avatar = msg.get("avatar", "🤖")
+
+        with st.chat_message(sender, avatar=avatar):
+            st.markdown(
+                f'<div class="sender-name">👤 {sender}</div>',
+                unsafe_allow_html=True,
+            )
+            st.code(msg["cipher_text"], language="text")
+
+            is_media = (
+                "raw_cipher_media" in msg
+                and msg["raw_cipher_media"] is not None
+            )
+            btn_label = "🔓 Giải mã Media" if is_media else "🔓 Giải mã & Dịch"
+
+            if st.button(btn_label, key=f"btn_{msg_id}"):
+                if msg_id in st.session_state.expanded_msgs:
+                    st.session_state.expanded_msgs.remove(msg_id)
+                else:
+                    st.session_state.expanded_msgs.add(msg_id)
+
+                    if msg_id not in st.session_state.decrypted_cache:
+                        if is_media:
+                            dec_b64 = decrypt_proportional(
+                                msg["raw_cipher_media"],
+                                st.session_state.e2ee_key,
+                            )
+                            st.session_state.decrypted_cache[msg_id] = {
+                                "media_data": base64.b64decode(
+                                    dec_b64.encode("utf-8")
+                                )
+                            }
+                        else:
+                            dec = decrypt_proportional(
+                                msg["cipher_text"], st.session_state.e2ee_key
+                            )
+                            try:
+                                trans = GoogleTranslator(
+                                    source="auto", target="vi"
+                                ).translate(dec)
+                            except Exception:
+                                trans = dec
+                            st.session_state.decrypted_cache[msg_id] = {
+                                "decrypted_text": dec,
+                                "translated_text": trans,
+                            }
                 st.rerun()
 
-        if msg.get("show_trans"):
-            if "raw_cipher_media" in msg and msg["raw_cipher_media"]:
-                st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
-                if msg["media_kind"] == "image":
-                    st.image(
-                        msg["decrypted_media"],
-                        caption="📷 Ảnh giải mã E2EE (Độ phân giải gốc)",
-                    )
-                elif msg["media_kind"] == "video":
-                    st.video(msg["decrypted_media"])
+            if msg_id in st.session_state.expanded_msgs:
+                cache = st.session_state.decrypted_cache.get(msg_id, {})
+                if is_media:
+                    st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
+                    media_bytes = cache.get("media_data")
+                    if media_bytes:
+                        if msg["media_kind"] == "image":
+                            st.image(
+                                media_bytes, caption="📷 Ảnh giải mã E2EE gốc"
+                            )
+                        elif msg["media_kind"] == "video":
+                            st.video(media_bytes)
+                        else:
+                            st.download_button(
+                                "📥 Tải File Giải Mã",
+                                data=media_bytes,
+                                file_name=msg["file_name"],
+                                mime=msg["mime_type"],
+                            )
                 else:
-                    st.download_button(
-                        "📥 Tải File Đã Giải Mã",
-                        data=msg["decrypted_media"],
-                        file_name=msg["file_name"],
-                        mime=msg["mime_type"],
+                    raw_decrypted = cache.get("decrypted_text", "")
+                    highlighted_text = re.sub(
+                        r"(@\w+)",
+                        r'<span class="tag-inline">\1</span>',
+                        raw_decrypted,
                     )
-            else:
-                raw_decrypted = msg["decrypted_text"]
-                highlighted_text = re.sub(
-                    r"(@\w+)", r'<span class="tag-inline">\1</span>', raw_decrypted
-                )
-                st.markdown(
-                    f"💬 **Nội dung gốc:** {highlighted_text}",
-                    unsafe_allow_html=True,
-                )
-                if msg.get("translated_text"):
-                    st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
+                    st.markdown(
+                        f"💬 **Nội dung gốc:** {highlighted_text}",
+                        unsafe_allow_html=True,
+                    )
+                    st.info(
+                        f"🌐 **Bản dịch (Tiếng Việt):** {cache.get('translated_text', '')}"
+                    )
 
-# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP
+
+render_chat_stream()
+
+# 9. Ô NHẬP TIN NHẮN
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
 
-    cipher_text = encrypt_proportional(
-        user_input, st.session_state.e2ee_key
-    )
+    cipher_text = encrypt_proportional(user_input, st.session_state.e2ee_key)
 
     msg_data = {
         "sender_name": user_name,
@@ -273,15 +292,10 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
         "tagged_user": tagged_str,
     }
 
-    saved_to_cloud = False
     if supabase_client:
         try:
             supabase_client.table("messages").insert(msg_data).execute()
-            saved_to_cloud = True
         except Exception:
             pass
-
-    if not saved_to_cloud:
-        st.session_state.messages.append(msg_data)
 
     st.rerun()
