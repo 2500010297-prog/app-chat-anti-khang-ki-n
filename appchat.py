@@ -1,6 +1,7 @@
 import base64
 import hashlib
 from deep_translator import GoogleTranslator
+from PIL import Image
 import streamlit as st
 
 # 1. CẤU HÌNH GIAO DIỆN CYBER DARK
@@ -8,31 +9,26 @@ st.set_page_config(
     page_title="E2EE Secure Chat", page_icon="🔒", layout="centered"
 )
 
-# SỬA LỖI CHỮ TÀNG HÌNH TRÊN Ô NHẬP CHAT
 st.markdown(
     """
 <style>
-    /* Nền ứng dụng Slate Navy */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
     }
     
-    /* Sửa trực tiếp ô nhập tin nhắn st.chat_input để chữ luôn rõ nét */
     div[data-testid="stChatInput"] textarea {
-        color: #0f172a !important; /* Chữ màu tối đậm rõ ràng */
-        background-color: #f1f5f9 !important; /* Nền sáng phản quan */
+        color: #0f172a !important;
+        background-color: #f1f5f9 !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
     }
     
-    /* Viền ô nhập tin nhắn */
     div[data-testid="stChatInput"] {
         border: 1px solid #38bdf8 !important;
         border-radius: 12px !important;
     }
 
-    /* Định dạng ô chọn ở Sidebar */
     .stTextInput input, div[data-baseweb="select"] {
         background-color: #1e293b !important;
         color: #f8fafc !important;
@@ -43,7 +39,7 @@ st.markdown(
 )
 
 
-# 2. THUẬT TOÁN MÃ HÓA TỈ LỆ THEO ĐỘ DÀI VĂN BẢN (STREAM CIPHER)
+# 2. THUẬT TOÁN MÃ HÓA E2EE (VĂN BẢN & MEDIA HD)
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -74,83 +70,139 @@ if "e2ee_key" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 4. THANH SIDEBAR: TÙY CHỈNH & THÔNG TIN TÁC GIẢ
+# 4. THANH SIDEBAR (ĐÃ BỎ EMAIL)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="AI Bot User")
 
-# Bổ sung các Icon AI Chatbot
-user_avatar = st.sidebar.selectbox(
-    "🎭 Chọn Avatar (Có AI Chatbot):",
-    [
-        "🤖",
-        "👾",
-        "🧠",
-        "🔮",
-        "https://cdn-icons-png.flaticon.com/512/4712/4712035.png",
-        "🥷",
-        "🦊",
-        "👑",
-    ],
-    index=0,
+avatar_type = st.sidebar.radio(
+    "🎨 Kiểu Avatar:", ["Emoji / Bot có sẵn", "Tự tải ảnh lên"]
 )
+if avatar_type == "Emoji / Bot có sẵn":
+    user_avatar = st.sidebar.selectbox(
+        "🎭 Chọn biểu tượng:", ["🤖", "👾", "🧠", "🔮", "🥷", "🦊", "👑"], index=0
+    )
+else:
+    uploaded_avatar = st.sidebar.file_uploader(
+        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
+    )
+    user_avatar = Image.open(uploaded_avatar) if uploaded_avatar else "🤖"
 
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
 
-# THÔNG TIN TÁC GIẢ & HỖ TRỢ
+# CHỈ GIỮ LẠI TÊN TÁC GIẢ N.Đ.K
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 👨‍💻 Thông tin hỗ trợ")
-st.sidebar.markdown("**Tác giả:** N.Đ.K")
-st.sidebar.markdown("✉️ **Email:** `nguyenkhoa130597@gmail.com`")
+st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 5. TIÊU ĐỀ ỨNG DỤNG
-st.title("🔒 E2EE Cyber Chat")
-st.caption("Độ dài chuỗi mã hóa tự động điều chỉnh linh hoạt theo tin nhắn.")
+st.title("🔒 E2EE Cyber Chat Pro")
+st.caption("Hỗ trợ gửi Tin nhắn, Ảnh HD, Video & Tệp đính kèm mã hóa E2EE.")
 st.divider()
 
-# 6. HIỂN THỊ DANH SÁCH TIN NHẮN
+# 6. KHU VỰC ĐĂNG ẢNH HD, VIDEO HOẶC FILE MÃ HÓA
+with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
+    file_upload = st.file_uploader(
+        "Chọn file đính kèm (Ảnh HD, Video MP4, PDF...):", key="media_uploader"
+    )
+    if st.button("📤 Gửi File Mã Hóa", use_container_width=True):
+        if file_upload is not None:
+            file_bytes = file_upload.read()
+            # Chuyển file sang Base64 và mã hóa E2EE
+            b64_file = base64.b64encode(file_bytes).decode("utf-8")
+            cipher_file = encrypt_proportional(
+                b64_file, st.session_state.e2ee_key
+            )
+
+            mime = file_upload.type
+            media_kind = "file"
+            if "image" in mime:
+                media_kind = "image"
+            elif "video" in mime:
+                media_kind = "video"
+
+            st.session_state.messages.append(
+                {
+                    "sender_name": user_name,
+                    "avatar": user_avatar,
+                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
+                    "raw_cipher_media": cipher_file,
+                    "media_kind": media_kind,
+                    "file_name": file_upload.name,
+                    "mime_type": mime,
+                    "decrypted_media": None,
+                    "show_trans": False,
+                }
+            )
+            st.rerun()
+
+# 7. HIỂN THỊ DANH SÁCH TIN NHẮN & MEDIA
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg["sender_name"], avatar=msg.get("avatar", "🤖")
     ):
-        # HIỂN THỊ CHUỖI MÃ HÓA NGẮN/DÀI TƯƠNG ỨNG
         st.code(msg["cipher_text"], language="text")
 
-        # NÚT BẤM GIẢI MÃ & DỊCH
         col1, col2 = st.columns([1.5, 3])
         with col1:
-            if st.button(f"🔓 Giải mã & Dịch", key=f"btn_{idx}"):
-                if not msg["decrypted_text"]:
-                    # Giải mã
-                    dec = decrypt_proportional(
-                        msg["cipher_text"], st.session_state.e2ee_key
-                    )
-                    msg["decrypted_text"] = dec
-
-                    # Dịch tự động
-                    try:
-                        translated = GoogleTranslator(
-                            source="auto", target="vi"
-                        ).translate(dec)
-                        msg["translated_text"] = translated
-                    except Exception:
-                        msg["translated_text"] = dec
+            btn_label = (
+                "🔓 Giải mã Media"
+                if "raw_cipher_media" in msg
+                else "🔓 Giải mã & Dịch"
+            )
+            if st.button(btn_label, key=f"btn_{idx}"):
+                if "raw_cipher_media" in msg:
+                    if msg["decrypted_media"] is None:
+                        # Giải mã Media E2EE
+                        dec_b64 = decrypt_proportional(
+                            msg["raw_cipher_media"], st.session_state.e2ee_key
+                        )
+                        msg["decrypted_media"] = base64.b64decode(
+                            dec_b64.encode("utf-8")
+                        )
+                else:
+                    if not msg.get("decrypted_text"):
+                        dec = decrypt_proportional(
+                            msg["cipher_text"], st.session_state.e2ee_key
+                        )
+                        msg["decrypted_text"] = dec
+                        try:
+                            msg["translated_text"] = GoogleTranslator(
+                                source="auto", target="vi"
+                            ).translate(dec)
+                        except Exception:
+                            msg["translated_text"] = dec
 
                 msg["show_trans"] = not msg["show_trans"]
                 st.rerun()
 
-        # HIỂN THỊ KẾT QUẢ KHI NHẤN NÚT
+        # Hiển thị nội dung sau khi nhấn Giải mã
         if msg.get("show_trans"):
-            st.success(f"💬 **Nội dung gốc:** {msg['decrypted_text']}")
-            if msg.get("translated_text"):
-                st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
+            if "raw_cipher_media" in msg:
+                st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
+                if msg["media_kind"] == "image":
+                    st.image(
+                        msg["decrypted_media"],
+                        caption="📷 Ảnh giải mã E2EE (Độ phân giải gốc)",
+                    )
+                elif msg["media_kind"] == "video":
+                    st.video(msg["decrypted_media"])
+                else:
+                    st.download_button(
+                        "📥 Tải File Đã Giải Mã",
+                        data=msg["decrypted_media"],
+                        file_name=msg["file_name"],
+                        mime=msg["mime_type"],
+                    )
+            else:
+                st.success(f"💬 **Nội dung gốc:** {msg['decrypted_text']}")
+                if msg.get("translated_text"):
+                    st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 7. Ô NHẬP TIN NHẮN MỚI
+# 8. Ô NHẬP TIN NHẮN VĂN BẢN
 if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
     cipher_text = encrypt_proportional(
         user_input, st.session_state.e2ee_key
     )
-
     st.session_state.messages.append(
         {
             "sender_name": user_name,
