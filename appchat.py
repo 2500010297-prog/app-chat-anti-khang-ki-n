@@ -70,23 +70,16 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (LƯU VĨNH VIỄN 24/7)
-st.sidebar.title("🌐 Kết Nối Đám Mây")
-supabase_url = st.sidebar.text_input(
-    "Supabase URL:", type="password", placeholder="https://xyz.supabase.co"
-)
-supabase_key = st.sidebar.text_input(
-    "Supabase Anon Key:", type="password", placeholder="eyJhbG..."
-)
+# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ BẢO MẬT & ẨN KHỎI GIAO DIỆN)
+SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co"  # Link Supabase của bạn
+SUPABASE_KEY = "dán_toàn_bộ_chuỗi_anon_key_của_bạn_vào_đây"  # Key eyJhbGci...
 
 supabase_client = None
-if supabase_url and supabase_key:
-    try:
-        supabase_client = create_client(supabase_url, supabase_key)
-        st.sidebar.success("⚡ Đã kết nối Supabase Cloud!")
-    except Exception as e:
-        st.sidebar.error("Lỗi kết nối Supabase!")
-
+try:
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception:
+    pass
+    
 # 4. KHỞI TẠO BỘ NHỚ LOCAL
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
