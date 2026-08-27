@@ -75,29 +75,22 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD
+# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ CẤU HÌNH KHÓA CHÍNH XÁC)
 SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
-SUPABASE_KEY = "DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY".strip()
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yc3F6Z2doY2lqZ3VqYWVyZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzQwNjEsImV4cCI6MjEwMzQxMDA2MX0.UQ2s9VRtnPW9EqzPPW4Ywx3blCG3d1OeSM3WJ23CEmA".strip()
 
 supabase_client = None
-if (
-    SUPABASE_URL
-    and SUPABASE_KEY
-    and "DÁN_ANON_KEY" not in SUPABASE_KEY
-):
-    try:
-        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    except Exception:
-        pass
+try:
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception:
+    pass
 
-# 4. KHỞI TẠO BỘ NHỚ
+# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ SUPABASE
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+st.session_state.messages = []
 
-# Tải tin nhắn từ Cloud
 if supabase_client:
     try:
         res = (
@@ -137,7 +130,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag ngay trong tin nhắn.")
+st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag & Lưu trữ Cloud vĩnh viễn.")
 st.divider()
 
 # 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
@@ -177,17 +170,14 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
 
             if supabase_client:
                 supabase_client.table("messages").insert(msg_data).execute()
-            else:
-                st.session_state.messages.append(msg_data)
 
             st.rerun()
 
-# 8. HIỂN THỊ DANH SÁCH TIN NHẮN (HIỆN TÊN NGƯỜI GỬI RÕ RÀNG)
+# 8. HIỂN THỊ DANH SÁCH TIN NHẮN (HIỆN BIỆT DANH NGƯỜI GỬI)
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg.get("sender_name", "user"), avatar=msg.get("avatar", "🤖")
     ):
-        # Nổi bật biệt danh người gửi
         sender = msg.get("sender_name", "Ẩn danh")
         st.markdown(
             f'<div class="sender-name">👤 {sender}</div>',
@@ -257,7 +247,7 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 9. Ô NHẬP TIN NHẮN
+# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
@@ -275,7 +265,5 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
 
     if supabase_client:
         supabase_client.table("messages").insert(msg_data).execute()
-    else:
-        st.session_state.messages.append(msg_data)
 
     st.rerun()
