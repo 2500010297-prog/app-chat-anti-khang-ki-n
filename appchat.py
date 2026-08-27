@@ -6,7 +6,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN (ĐÃ KHÔI PHÚC MÀU CŨ, CHỈ CHỈNH MÀU Ô DỊCH)
+# 1. CẤU HÌNH GIAO DIỆN CYBER DARK
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -14,13 +14,10 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    /* Trả lại màu nền Gradient Cyber Dark ban đầu */
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
     }
-    
-    /* Ô nhập tin nhắn ban đầu */
     div[data-testid="stChatInput"] textarea {
         color: #0f172a !important;
         background-color: #f1f5f9 !important;
@@ -35,7 +32,6 @@ st.markdown(
         background-color: #1e293b !important;
         color: #f8fafc !important;
     }
-    
     .sender-name {
         color: #38bdf8;
         font-weight: bold;
@@ -49,13 +45,11 @@ st.markdown(
         border-radius: 4px;
         font-weight: bold;
     }
-
-    /* CHỈ ĐỔI MÀU CHỮ & NỀN CHO RIÊNG PHẦN GIẢI MÃ & BẢN DỊCH */
     div[data-testid="stAlert"] {
         background-color: #1e293b !important;
         border: 1px solid #38bdf8 !important;
     }
-    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div {
+    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span {
         color: #ffffff !important;
         font-weight: 500 !important;
     }
@@ -65,7 +59,7 @@ st.markdown(
 )
 
 
-# 2. HÀM DỊCH SIÊU TỐC (CÓ CACHE CHỐNG LAG)
+# 2. HÀM DỊCH CACHE CHỐNG LAG
 @st.cache_data(show_spinner=False)
 def fast_translate(text: str) -> str:
     if not text.strip():
@@ -152,7 +146,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time PC & Mobile.")
+st.caption("Trò chuyện bảo mật E2EE — Tốc độ cao & Tiết kiệm băng thông.")
 st.divider()
 
 # 8. GỬI MEDIA MÃ HÓA
@@ -198,15 +192,18 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             st.rerun()
 
 
-# 9. DÒNG THỜI GIAN TIN NHẮN REAL-TIME (3S)
-@st.fragment(run_every=3)
+# 9. CHAT STREAM (LAZY LOADING - CHỈ TẢI TEXT NHẸ MỖI 2S)
+@st.fragment(run_every=2)
 def render_chat_stream():
     messages = []
     if supabase_client:
         try:
+            # Bỏ qua raw_cipher_media để tải danh sách siêu nhanh
             res = (
                 supabase_client.table("messages")
-                .select("*")
+                .select(
+                    "id, sender_name, avatar, cipher_text, media_kind, file_name, mime_type, tagged_user"
+                )
                 .order("id", desc=False)
                 .execute()
             )
@@ -219,6 +216,7 @@ def render_chat_stream():
         msg_id = msg.get("id") or msg.get("cipher_text")
         sender = msg.get("sender_name", "Ẩn danh")
         avatar = msg.get("avatar", "🤖")
+        media_k = msg.get("media_kind")
 
         with st.chat_message(sender, avatar=avatar):
             st.markdown(
@@ -227,10 +225,7 @@ def render_chat_stream():
             )
             st.code(msg["cipher_text"], language="text")
 
-            is_media = (
-                "raw_cipher_media" in msg
-                and msg["raw_cipher_media"] is not None
-            )
+            is_media = bool(media_k)
             btn_label = "🔓 Giải mã Media" if is_media else "🔓 Giải mã & Dịch"
 
             if st.button(btn_label, key=f"btn_{msg_id}"):
@@ -241,15 +236,28 @@ def render_chat_stream():
 
                     if msg_id not in st.session_state.decrypted_cache:
                         if is_media:
-                            dec_b64 = decrypt_proportional(
-                                msg["raw_cipher_media"],
-                                st.session_state.e2ee_key,
-                            )
-                            st.session_state.decrypted_cache[msg_id] = {
-                                "media_data": base64.b64decode(
-                                    dec_b64.encode("utf-8")
+                            # Tải riêng media nặng từ Cloud khi bấm nút
+                            try:
+                                media_res = (
+                                    supabase_client.table("messages")
+                                    .select("raw_cipher_media")
+                                    .eq("id", msg_id)
+                                    .single()
+                                    .execute()
                                 )
-                            }
+                                raw_media = media_res.data.get(
+                                    "raw_cipher_media", ""
+                                )
+                                dec_b64 = decrypt_proportional(
+                                    raw_media, st.session_state.e2ee_key
+                                )
+                                st.session_state.decrypted_cache[msg_id] = {
+                                    "media_data": base64.b64decode(
+                                        dec_b64.encode("utf-8")
+                                    )
+                                }
+                            except Exception:
+                                pass
                         else:
                             dec = decrypt_proportional(
                                 msg["cipher_text"], st.session_state.e2ee_key
@@ -264,21 +272,23 @@ def render_chat_stream():
             if msg_id in st.session_state.expanded_msgs:
                 cache = st.session_state.decrypted_cache.get(msg_id, {})
                 if is_media:
-                    st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
+                    st.success(f"📎 Tệp gốc: **{msg.get('file_name', '')}**")
                     media_bytes = cache.get("media_data")
                     if media_bytes:
-                        if msg["media_kind"] == "image":
+                        if media_k == "image":
                             st.image(
                                 media_bytes, caption="📷 Ảnh giải mã E2EE gốc"
                             )
-                        elif msg["media_kind"] == "video":
+                        elif media_k == "video":
                             st.video(media_bytes)
                         else:
                             st.download_button(
                                 "📥 Tải File Giải Mã",
                                 data=media_bytes,
-                                file_name=msg["file_name"],
-                                mime=msg["mime_type"],
+                                file_name=msg.get("file_name", "file"),
+                                mime=msg.get(
+                                    "mime_type", "application/octet-stream"
+                                ),
                             )
                 else:
                     raw_decrypted = cache.get("decrypted_text", "")
@@ -298,7 +308,7 @@ def render_chat_stream():
 
 render_chat_stream()
 
-# 10. Ô NHẬP TIN NHẮN
+# 10. Ô NHẬP TIN NHẮN TẬP TRUNG
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
