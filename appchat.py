@@ -75,7 +75,7 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ CẤU HÌNH KHÓA CHÍNH XÁC)
+# 3. KẾT NỐI SUPABASE CLOUD
 SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yc3F6Z2doY2lqZ3VqYWVyZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzQwNjEsImV4cCI6MjEwMzQxMDA2MX0.UQ2s9VRtnPW9EqzPPW4Ywx3blCG3d1OeSM3WJ23CEmA".strip()
 
@@ -85,11 +85,12 @@ try:
 except Exception:
     pass
 
-# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ SUPABASE
+# 4. KHỞI TẠO BỘ NHỚ VÀ TẢI TIN NHẮN TỪ CLOUD (CÓ BẢO VỆ NGUỒN KẾT NỐI)
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
-st.session_state.messages = []
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 if supabase_client:
     try:
@@ -99,9 +100,10 @@ if supabase_client:
             .order("id", desc=False)
             .execute()
         )
-        st.session_state.messages = res.data
+        if res.data:
+            st.session_state.messages = res.data
     except Exception:
-        pass
+        st.warning("⚠️ Đang mất kết nối Cloud. Ứng dụng chạy chế độ tạm thời.")
 
 # 5. THANH SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
@@ -130,7 +132,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag & Lưu trữ Cloud vĩnh viễn.")
+st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag & Bảo vệ kết nối.")
 st.divider()
 
 # 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
@@ -168,12 +170,20 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
                 "tagged_user": "",
             }
 
+            saved_to_cloud = False
             if supabase_client:
-                supabase_client.table("messages").insert(msg_data).execute()
+                try:
+                    supabase_client.table("messages").insert(msg_data).execute()
+                    saved_to_cloud = True
+                except Exception:
+                    pass
+            
+            if not saved_to_cloud:
+                st.session_state.messages.append(msg_data)
 
             st.rerun()
 
-# 8. HIỂN THỊ DANH SÁCH TIN NHẮN (HIỆN BIỆT DANH NGƯỜI GỬI)
+# 8. HIỂN THỊ DANH SÁCH TIN NHẮN
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg.get("sender_name", "user"), avatar=msg.get("avatar", "🤖")
@@ -247,7 +257,7 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP
+# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP (BẢO VỆ CHỐNG SẬP KHI GỬI)
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
@@ -263,7 +273,15 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
         "tagged_user": tagged_str,
     }
 
+    saved_to_cloud = False
     if supabase_client:
-        supabase_client.table("messages").insert(msg_data).execute()
+        try:
+            supabase_client.table("messages").insert(msg_data).execute()
+            saved_to_cloud = True
+        except Exception:
+            pass
+
+    if not saved_to_cloud:
+        st.session_state.messages.append(msg_data)
 
     st.rerun()
