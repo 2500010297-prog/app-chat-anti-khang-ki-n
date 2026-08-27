@@ -1,5 +1,6 @@
 import base64
 import hashlib
+from io import BytesIO
 import re
 from deep_translator import GoogleTranslator
 from PIL import Image
@@ -119,24 +120,55 @@ if "decrypted_cache" not in st.session_state:
 if "expanded_msgs" not in st.session_state:
     st.session_state.expanded_msgs = set()
 
-# 6. SIDEBAR
+# 6. SIDEBAR - ĐỔI AVATAR TỪ THIẾT BỊ (NÉN TỰ ĐỘNG SIÊU NHẸ)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
 avatar_type = st.sidebar.radio(
-    "🎨 Kiểu Avatar:", ["Emoji / Bot có sẵn", "Tự tải ảnh lên"]
+    "🎨 Kiểu Avatar:", ["Emoji có sẵn", "Tải ảnh từ thiết bị"]
 )
-if avatar_type == "Emoji / Bot có sẵn":
+
+if avatar_type == "Emoji có sẵn":
     user_avatar = st.sidebar.selectbox(
         "🎭 Chọn biểu tượng:",
-        ["🤖", "👾", "🧠", "🔮", "🥷", "🦊", "👑", "🔥", "🦄"],
+        [
+            "🤖",
+            "👾",
+            "🧠",
+            "🔮",
+            "🥷",
+            "🦊",
+            "👑",
+            "🔥",
+            "🦄",
+            "🐱",
+            "🐶",
+            "🐼",
+            "🦁",
+            "🚀",
+            "🛡️",
+            "😎",
+        ],
         index=0,
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
-    user_avatar = Image.open(uploaded_avatar) if uploaded_avatar else "🤖"
+    if uploaded_avatar:
+        try:
+            # Thu nhỏ ảnh về 80x80 px để gửi tin nhắn siêu tốc
+            img = Image.open(uploaded_avatar)
+            img.thumbnail((80, 80))
+            buffer = BytesIO()
+            img.save(buffer, format="PNG")
+            b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            user_avatar = f"data:image/png;base64,{b64_img}"
+            st.sidebar.image(img, caption="Avatar đã nén nhẹ", width=70)
+        except Exception:
+            user_avatar = "🤖"
+    else:
+        user_avatar = "🤖"
 
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
@@ -171,11 +203,7 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
 
             msg_data = {
                 "sender_name": user_name,
-                "avatar": (
-                    user_avatar
-                    if isinstance(user_avatar, str)
-                    else "🤖"
-                ),
+                "avatar": user_avatar,
                 "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
                 "raw_cipher_media": cipher_file,
                 "media_kind": media_kind,
@@ -192,13 +220,12 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             st.rerun()
 
 
-# 9. CHAT STREAM (LAZY LOADING - CHỈ TẢI TEXT NHẸ MỖI 2S)
+# 9. CHAT STREAM (LAZY LOADING)
 @st.fragment(run_every=2)
 def render_chat_stream():
     messages = []
     if supabase_client:
         try:
-            # Bỏ qua raw_cipher_media để tải danh sách siêu nhanh
             res = (
                 supabase_client.table("messages")
                 .select(
@@ -236,7 +263,6 @@ def render_chat_stream():
 
                     if msg_id not in st.session_state.decrypted_cache:
                         if is_media:
-                            # Tải riêng media nặng từ Cloud khi bấm nút
                             try:
                                 media_res = (
                                     supabase_client.table("messages")
@@ -317,7 +343,7 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
 
     msg_data = {
         "sender_name": user_name,
-        "avatar": user_avatar if isinstance(user_avatar, str) else "🤖",
+        "avatar": user_avatar,
         "cipher_text": cipher_text,
         "tagged_user": tagged_str,
     }
