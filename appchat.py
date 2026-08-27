@@ -1,6 +1,5 @@
 import base64
 import hashlib
-
 from deep_translator import GoogleTranslator
 from PIL import Image
 import streamlit as st
@@ -46,7 +45,7 @@ st.markdown(
 )
 
 
-# 2. THUẬT TOÁN MÃ HÓA E2EE (STREAM CIPHER)
+# 2. THUẬT TOÁN MÃ HÓA E2EE
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -70,24 +69,29 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ BẢO MẬT & ẨN KHỎI GIAO DIỆN)
-SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co"  # Link Supabase của bạn
-SUPABASE_KEY = "dán_toàn_bộ_chuỗi_anon_key_của_bạn_vào_đây"  # Key eyJhbGci...
+# 3. KẾT NỐI SUPABASE CLOUD (XỬ LÝ CHUẨN KÝ TỰ CHỐNG LỖI UNICODE)
+SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
+SUPABASE_KEY = "DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY".strip()
 
 supabase_client = None
-try:
-    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-except Exception:
-    pass
-    
-# 4. KHỞI TẠO BỘ NHỚ LOCAL
+if (
+    SUPABASE_URL
+    and SUPABASE_KEY
+    and "DÁN_ANON_KEY" not in SUPABASE_KEY
+):
+    try:
+        supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception:
+        pass
+
+# 4. KHỞI TẠO BỘ NHỚ
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Tải tin nhắn từ Cloud nếu đã kết nối
+# Tải tin nhắn từ Cloud
 if supabase_client:
     try:
         res = (
@@ -100,7 +104,7 @@ if supabase_client:
     except Exception:
         pass
 
-# 5. THANH SIDEBAR & THẺ ĐỊNH DANH
+# 5. THANH SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -127,24 +131,10 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Lưu trữ Cloud vĩnh viễn & Gắn thẻ bạn bè.")
+st.caption("Trò chuyện bảo mật E2EE — Lưu trữ Cloud vĩnh viễn.")
 st.divider()
 
-# 7. CHỨC NĂNG GẮN THẺ (@TAG) VÀ KHU VỰC EMOJI
-st.subheader("📌 Tùy chọn gửi tin nhắn")
-col_tag, col_emoji = st.columns([1, 1])
-
-with col_tag:
-    tagged_friend = st.text_input(
-        "🏷️ Gắn thẻ bạn bè (@tag):",
-        placeholder="Nhập tên người cần tag (VD: User_Beta)...",
-    )
-
-st.markdown("**😃 Bàn phím Emoji nhanh (Click để chép):**")
-emoji_list = ["👍", "❤️", "🔥", "😂", "🎉", "💩", "🛡️", "⚡", "🚀", "🤫", "🎯"]
-st.write(" ".join(emoji_list))
-
-# 8. GỬI FILE MÃ HÓA MEDIA E2EE
+# 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
 with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
     file_upload = st.file_uploader(
         "Chọn file đính kèm (Ảnh HD, Video MP4, PDF...):", key="media_uploader"
@@ -176,7 +166,7 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
                 "media_kind": media_kind,
                 "file_name": file_upload.name,
                 "mime_type": mime,
-                "tagged_user": tagged_friend.strip(),
+                "tagged_user": "",
             }
 
             if supabase_client:
@@ -186,13 +176,12 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
 
             st.rerun()
 
-# 9. HIỂN THỊ DANH SÁCH TIN NHẮN
+# 8. HIỂN THỊ DANH SÁCH TIN NHẮN
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg["sender_name"], avatar=msg.get("avatar", "🤖")
     ):
-        # Hiển thị thẻ @Tag nếu có
-        if msg.get("tagged_user"):
+        if msg.get("tagged_user") and msg["tagged_user"] != "(Không tag)":
             st.markdown(
                 f"<span class='tag-badge'>🏷️ @{msg['tagged_user']}</span>",
                 unsafe_allow_html=True,
@@ -254,16 +243,29 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 10. Ô NHẬP TIN NHẮN VĂN BẢN
+# 9. DANH SÁCH THÀNH VIÊN VÀ Ô CHAT ĐẶT LIỀN NHAU Ở ĐÁY MÀN HÌNH
+member_list = [
+    "(Không tag)",
+    "User_Alpha",
+    "User_Beta",
+    "Khang",
+    "Kiên",
+    "N.Đ.K",
+    "Tất cả (@all)",
+]
+selected_tag = st.selectbox("🏷️ Chọn thành viên cần tag:", member_list, index=0)
+
 if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
+    tag_val = "" if selected_tag == "(Không tag)" else selected_tag
     cipher_text = encrypt_proportional(
         user_input, st.session_state.e2ee_key
     )
+
     msg_data = {
         "sender_name": user_name,
         "avatar": user_avatar if isinstance(user_avatar, str) else "🤖",
         "cipher_text": cipher_text,
-        "tagged_user": tagged_friend.strip(),
+        "tagged_user": tag_val,
     }
 
     if supabase_client:
