@@ -50,8 +50,6 @@ st.markdown(
         border-radius: 4px;
         font-weight: bold;
     }
-
-    /* KHUNG HIỂN THỊ NỘI DUNG GỐC DỄ NHÌN, CHỮ TRẮNG NỔI BẬT */
     .msg-original {
         color: #ffffff !important;
         background-color: #0f172a;
@@ -72,7 +70,6 @@ st.markdown(
         margin-bottom: 8px;
         font-size: 0.95rem;
     }
-
     button[data-testid="stPopoverButton"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
@@ -145,7 +142,7 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHỞI TẠO BỘ NHỚ TẠM
+# 5. KHỞI TẠO BỘ NHỚ TẠM THỜI
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -158,12 +155,18 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH
+# LƯU AVATAR TÙY CHỈNH VÀO SESSION ĐỂ KHÔNG BỊ MẤT KHI REFRESH
+if "custom_avatar" not in st.session_state:
+    st.session_state.custom_avatar = None
+
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (LƯU TRẠNG THÁI AVATAR BỀN VỮNG)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
 avatar_type = st.sidebar.radio(
-    "🎨 Kiểu Avatar:", ["Emoji có sẵn", "Tải ảnh từ thiết bị"]
+    "🎨 Kiểu Avatar:",
+    ["Emoji có sẵn", "Tải ảnh từ thiết bị"],
+    key="avatar_choice_type",
 )
 
 if avatar_type == "Emoji có sẵn":
@@ -191,7 +194,7 @@ if avatar_type == "Emoji có sẵn":
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
     if uploaded_avatar:
         try:
@@ -200,10 +203,17 @@ else:
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=60)
             b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            user_avatar = f"data:image/jpeg;base64,{b64_img}"
-            st.sidebar.image(img, caption="Avatar đã tối ưu", width=60)
+            st.session_state.custom_avatar = f"data:image/jpeg;base64,{b64_img}"
         except Exception:
-            user_avatar = "🤖"
+            pass
+
+    if st.session_state.custom_avatar:
+        user_avatar = st.session_state.custom_avatar
+        st.sidebar.image(
+            st.session_state.custom_avatar,
+            caption="Avatar của bạn",
+            width=60,
+        )
     else:
         user_avatar = "🤖"
 
@@ -215,11 +225,11 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Tốc độ cao & Giao diện chuẩn.")
+st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s siêu tốc.")
 st.divider()
 
 
-# 8. DÒNG CHAT XỬ LÝ NỘI DUNG GỐC CHỮ TRẮNG DỄ NHÌN
+# 8. KHUNG CHAT STREAM
 @st.fragment(run_every=1)
 def render_chat_stream():
     db_messages = []
@@ -341,7 +351,6 @@ def render_chat_stream():
                         raw_decrypted,
                     )
 
-                    # TÁCH RIÊNG THẺ NỘI DUNG GỐC ĐỂ CHỮ NỔI BẬT DỄ ĐỌC
                     st.markdown(
                         f'<div class="msg-original">💬 <b>Nội dung gốc:</b> {highlighted_text}</div>',
                         unsafe_allow_html=True,
@@ -416,7 +425,7 @@ with st.popover(
 
                 st.rerun()
 
-# 10. KHUNG NHẬP TIN NHẮN TẤT CẢ TRONG MỘT
+# 10. KHUNG NHẬP TIN NHẮN
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
