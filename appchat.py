@@ -32,6 +32,12 @@ st.markdown(
         background-color: #1e293b !important;
         color: #f8fafc !important;
     }
+    .sender-name {
+        color: #38bdf8;
+        font-weight: bold;
+        font-size: 1.05rem;
+        margin-bottom: 4px;
+    }
     .tag-inline {
         background-color: #0284c7;
         color: #ffffff;
@@ -69,7 +75,7 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ LÀM SẠCH CHUỖI KHÓA)
+# 3. KẾT NỐI SUPABASE CLOUD
 SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
 SUPABASE_KEY = "DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY".strip()
 
@@ -176,11 +182,18 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
 
             st.rerun()
 
-# 8. HIỂN THỊ DANH SÁCH TIN NHẮN
+# 8. HIỂN THỊ DANH SÁCH TIN NHẮN (HIỆN TÊN NGƯỜI GỬI RÕ RÀNG)
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
-        msg["sender_name"], avatar=msg.get("avatar", "🤖")
+        msg.get("sender_name", "user"), avatar=msg.get("avatar", "🤖")
     ):
+        # Nổi bật biệt danh người gửi
+        sender = msg.get("sender_name", "Ẩn danh")
+        st.markdown(
+            f'<div class="sender-name">👤 {sender}</div>',
+            unsafe_allow_html=True,
+        )
+
         st.code(msg["cipher_text"], language="text")
 
         col1, col2 = st.columns([1.5, 3])
@@ -233,7 +246,6 @@ for idx, msg in enumerate(st.session_state.messages):
                         mime=msg["mime_type"],
                     )
             else:
-                # Nổi bật cụm @thành_viên khi giải mã tin nhắn
                 raw_decrypted = msg["decrypted_text"]
                 highlighted_text = re.sub(
                     r"(@\w+)", r'<span class="tag-inline">\1</span>', raw_decrypted
@@ -245,9 +257,8 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP (HỖ TRỢ @TAG TRONG CÂU)
+# 9. Ô NHẬP TIN NHẮN
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
-    # Tự động trích xuất các tên được tag dạng @name để lưu DB
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
 
