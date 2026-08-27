@@ -155,11 +155,27 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# LƯU AVATAR TÙY CHỈNH VÀO SESSION ĐỂ KHÔNG BỊ MẤT KHI REFRESH
 if "custom_avatar" not in st.session_state:
     st.session_state.custom_avatar = None
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (LƯU TRẠNG THÁI AVATAR BỀN VỮNG)
+
+# HÀM CALLBACK XỬ LÝ ẢNH AVATAR NGAY KHI TẢI LÊN (CHỐNG MẤT KHI RERUN)
+def process_custom_avatar():
+    file = st.session_state.get("uploaded_avatar_file")
+    if file is not None:
+        try:
+            file.seek(0)
+            img = Image.open(file)
+            img.thumbnail((60, 60))
+            buffer = BytesIO()
+            img.save(buffer, format="JPEG", quality=60)
+            b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            st.session_state.custom_avatar = f"data:image/jpeg;base64,{b64_img}"
+        except Exception:
+            pass
+
+
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -193,20 +209,12 @@ if avatar_type == "Emoji có sẵn":
         index=0,
     )
 else:
-    uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
+    st.sidebar.file_uploader(
+        "📤 Chọn ảnh từ máy (PNG, JPG):",
+        type=["png", "jpg", "jpeg"],
+        key="uploaded_avatar_file",
+        on_change=process_custom_avatar,
     )
-    if uploaded_avatar:
-        try:
-            img = Image.open(uploaded_avatar)
-            img.thumbnail((60, 60))
-            buffer = BytesIO()
-            img.save(buffer, format="JPEG", quality=60)
-            b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            st.session_state.custom_avatar = f"data:image/jpeg;base64,{b64_img}"
-        except Exception:
-            pass
-
     if st.session_state.custom_avatar:
         user_avatar = st.session_state.custom_avatar
         st.sidebar.image(
