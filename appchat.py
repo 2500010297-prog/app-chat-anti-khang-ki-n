@@ -8,7 +8,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN CYBER DARK
+# 1. CẤU HÌNH GIAO DIỆN & MÀU CHỮ CỐ ĐỊNH CHO TẤT CẢ THIẾT BỊ
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -22,6 +22,12 @@ st.markdown(
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
+    }
+    /* ÉP TẤT CẢ CHỮ TRONG KHUNG CHAT THÀNH MÀU TRẮNG */
+    div[data-testid="stChatMessage"] p, 
+    div[data-testid="stChatMessage"] span, 
+    div[data-testid="stChatMessage"] div {
+        color: #ffffff !important;
     }
     div[data-testid="stChatInput"] textarea {
         color: #0f172a !important;
@@ -38,25 +44,17 @@ st.markdown(
         color: #f8fafc !important;
     }
     .sender-name {
-        color: #38bdf8;
+        color: #38bdf8 !important;
         font-weight: bold;
         font-size: 1.05rem;
         margin-bottom: 4px;
     }
     .tag-inline {
         background-color: #0284c7;
-        color: #ffffff;
+        color: #ffffff !important;
         padding: 2px 6px;
         border-radius: 4px;
         font-weight: bold;
-    }
-    div[data-testid="stAlert"] {
-        background-color: #1e293b !important;
-        border: 1px solid #38bdf8 !important;
-    }
-    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div {
-        color: #ffffff !important;
-        font-weight: 500 !important;
     }
     button[data-testid="stPopoverButton"] {
         background-color: #0284c7 !important;
@@ -143,7 +141,7 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH
+# 6. SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -204,7 +202,7 @@ st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s siêu t
 st.divider()
 
 
-# 8. DÒNG PHẢN HỒI TIN NHẮN (ĐỒNG BỘ 1S)
+# 8. DÒNG CHAT HIỂN THỊ CHỮ TRẮNG NỔI BẬT KHÔNG BỊ NỀN ĐEN ĐÈ
 @st.fragment(run_every=1)
 def render_chat_stream():
     db_messages = []
@@ -298,7 +296,10 @@ def render_chat_stream():
             if msg_id in st.session_state.expanded_msgs:
                 cache = st.session_state.decrypted_cache.get(msg_id, {})
                 if is_media:
-                    st.success(f"📎 Tệp gốc: **{msg.get('file_name', '')}**")
+                    st.markdown(
+                        f'<div style="color: #ffffff !important; margin-bottom: 6px;">📎 Tệp gốc: <b>{msg.get("file_name", "")}</b></div>',
+                        unsafe_allow_html=True,
+                    )
                     media_bytes = cache.get("media_data")
                     if media_bytes:
                         if media_k == "image":
@@ -325,18 +326,21 @@ def render_chat_stream():
                         r'<span class="tag-inline">\1</span>',
                         raw_decrypted,
                     )
+
+                    # ĐÉP CHỮ TRẮNG CỐ ĐỊNH QUA INLINE HTML
                     st.markdown(
-                        f"💬 **Nội dung gốc:** {highlighted_text}",
+                        f'<div style="color: #ffffff !important; font-size: 1.05rem; margin-top: 6px; margin-bottom: 8px;">💬 <b>Nội dung gốc:</b> {highlighted_text}</div>',
                         unsafe_allow_html=True,
                     )
-                    st.info(
-                        f"🌐 **Bản dịch (Tiếng Việt):** {cache.get('translated_text', '')}"
+                    st.markdown(
+                        f'<div style="color: #ffffff !important; background-color: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #38bdf8; margin-top: 4px;">🌐 <b>Bản dịch (Tiếng Việt):</b> {cache.get("translated_text", "")}</div>',
+                        unsafe_allow_html=True,
                     )
 
 
 render_chat_stream()
 
-# 9. NÚT ĐÍNH KÈM MEDIA DẠNG POPOVER ĐẶT NGAY TRÊN KHUNG CHAT
+# 9. POPOVER GỬI MEDIA NGAY TRÊN KHUNG CHAT
 with st.popover(
     "📎 **Gửi Ảnh, Video hoặc File (Mã hóa E2EE)**", use_container_width=True
 ):
@@ -395,7 +399,7 @@ with st.popover(
 
                 st.rerun()
 
-# 10. KHUNG NHẬP TIN NHẮN CHÍNH
+# 10. KHUNG NHẬP TIN NHẮN TẤT CẢ TRONG MỘT
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
