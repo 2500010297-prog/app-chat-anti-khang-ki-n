@@ -8,7 +8,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN & MÀU SẮC BAN ĐẦU
+# 1. CẤU HÌNH GIAO DIỆN & CHỐNG GIẬT SCROLL
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -50,11 +50,13 @@ st.markdown(
         border-radius: 4px;
         font-weight: bold;
     }
+
+    /* CHỈ ĐỔI MÀU CHỮ BẢN DỊCH & GIẢI MÃ THÀNH MÀU TRẮNG */
     div[data-testid="stAlert"] {
         background-color: #1e293b !important;
         border: 1px solid #38bdf8 !important;
     }
-    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span {
+    div[data-testid="stAlert"] p, div[data-testid="stAlert"] span, div[data-testid="stAlert"] div {
         color: #ffffff !important;
         font-weight: 500 !important;
     }
@@ -64,7 +66,7 @@ st.markdown(
 )
 
 
-# 2. CACHE DỊCH THUẬT NGHẼN MẠNG
+# 2. CACHE DỊCH THUẬT SIÊU TỐC
 @st.cache_data(show_spinner=False)
 def fast_translate(text: str) -> str:
     if not text.strip():
@@ -115,7 +117,6 @@ def init_supabase():
 supabase_client = init_supabase()
 
 
-# HÀM GỬI MÁY CHỦ BẰNG TIẾN TRÌNH NGẦM (CHỐNG DELAY)
 def async_send_to_supabase(data):
     if supabase_client:
         try:
@@ -137,7 +138,7 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH
+# 6. SIDEBAR - ĐỔI AVATAR TẬN DỤNG NÉN ẢNH SIÊU NHẸ
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -170,7 +171,7 @@ if avatar_type == "Emoji có sẵn":
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
     if uploaded_avatar:
         try:
@@ -194,22 +195,18 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Gửi tin phản hồi siêu tốc.")
+st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s & Tốc độ cao.")
 st.divider()
 
-# 8. GỬI MEDIA MÃ HÓA
-with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
+# 8. GỬI MEDIA MÃ HÓA (NÉN TỰ ĐỘNG CHỐNG TRỄ MẠNG)
+with st.expander(
+    "📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"
+):
     file_upload = st.file_uploader(
-        "Chọn file đính kèm:", key="media_uploader"
+        "Chọn file đính kèm (Ảnh/Video/Tệp):", key="media_uploader"
     )
     if st.button("📤 Gửi File Mã Hóa", use_container_width=True):
         if file_upload is not None:
-            file_bytes = file_upload.read()
-            b64_file = base64.b64encode(file_bytes).decode("utf-8")
-            cipher_file = encrypt_proportional(
-                b64_file, st.session_state.e2ee_key
-            )
-
             mime = file_upload.type
             media_kind = "file"
             if "image" in mime:
@@ -217,27 +214,52 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             elif "video" in mime:
                 media_kind = "video"
 
-            msg_data = {
-                "sender_name": user_name,
-                "avatar": user_avatar,
-                "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
-                "raw_cipher_media": cipher_file,
-                "media_kind": media_kind,
-                "file_name": file_upload.name,
-                "mime_type": mime,
-                "tagged_user": "",
-            }
+            file_bytes = file_upload.read()
 
-            # Gửi ngầm không khóa UI
-            threading.Thread(
-                target=async_send_to_supabase, args=(msg_data,), daemon=True
-            ).start()
-            st.session_state.optimistic_msgs.append(msg_data)
-            st.rerun()
+            if media_kind == "image":
+                try:
+                    img = Image.open(BytesIO(file_bytes))
+                    img.thumbnail((1280, 1280))
+                    buf = BytesIO()
+                    img.save(buf, format="JPEG", quality=75)
+                    file_bytes = buf.getvalue()
+                    mime = "image/jpeg"
+                except Exception:
+                    pass
+
+            if len(file_bytes) > 3 * 1024 * 1024:
+                st.error("❌ Dung lượng file quá 3MB, vui lòng giảm kích thước.")
+            else:
+                b64_file = base64.b64encode(file_bytes).decode("utf-8")
+                cipher_file = encrypt_proportional(
+                    b64_file, st.session_state.e2ee_key
+                )
+
+                msg_data = {
+                    "sender_name": user_name,
+                    "avatar": user_avatar,
+                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
+                    "raw_cipher_media": cipher_file,
+                    "media_kind": media_kind,
+                    "file_name": file_upload.name,
+                    "mime_type": mime,
+                    "tagged_user": "",
+                }
+
+                if supabase_client:
+                    try:
+                        supabase_client.table("messages").insert(
+                            msg_data
+                        ).execute()
+                        st.success("✅ Gửi Media thành công!")
+                    except Exception:
+                        st.error("❌ Lỗi gửi file lên cơ sở dữ liệu.")
+
+                st.rerun()
 
 
-# 9. DÒNG PHẢN HỒI TIN NHẮN TỨC THÌ (OPTIMISTIC REAL-TIME)
-@st.fragment(run_every=3)
+# 9. CHAT STREAM ĐỒNG BỘ NGHỆ AN 1 GIÂY (RUN_EVERY=1 - SIÊU MƯỢT)
+@st.fragment(run_every=1)
 def render_chat_stream():
     db_messages = []
     if supabase_client:
@@ -248,7 +270,7 @@ def render_chat_stream():
                     "id, sender_name, avatar, cipher_text, media_kind, file_name, mime_type, tagged_user"
                 )
                 .order("id", desc=True)
-                .limit(40)
+                .limit(30)
                 .execute()
             )
             if res.data:
@@ -256,7 +278,6 @@ def render_chat_stream():
         except Exception:
             pass
 
-    # Loại bỏ tin tạm thời nếu đã được đồng bộ chính thức từ Cloud
     db_ciphers = {m.get("cipher_text") for m in db_messages}
     st.session_state.optimistic_msgs = [
         m
@@ -264,7 +285,6 @@ def render_chat_stream():
         if m.get("cipher_text") not in db_ciphers
     ]
 
-    # Hợp nhất tin nhắn từ Cloud và tin vừa bấm gửi trên máy local
     all_messages = db_messages + st.session_state.optimistic_msgs
 
     for msg in all_messages:
@@ -291,27 +311,34 @@ def render_chat_stream():
 
                     if msg_id not in st.session_state.decrypted_cache:
                         if is_media:
-                            try:
-                                media_res = (
-                                    supabase_client.table("messages")
-                                    .select("raw_cipher_media")
-                                    .eq("id", msg_id)
-                                    .single()
-                                    .execute()
-                                )
-                                raw_media = media_res.data.get(
-                                    "raw_cipher_media", ""
-                                )
+                            raw_media = msg.get("raw_cipher_media")
+                            if not raw_media and msg.get("id"):
+                                try:
+                                    media_res = (
+                                        supabase_client.table("messages")
+                                        .select("raw_cipher_media")
+                                        .eq("id", msg.get("id"))
+                                        .single()
+                                        .execute()
+                                    )
+                                    raw_media = media_res.data.get(
+                                        "raw_cipher_media", ""
+                                    )
+                                except Exception:
+                                    raw_media = ""
+
+                            if raw_media:
                                 dec_b64 = decrypt_proportional(
                                     raw_media, st.session_state.e2ee_key
                                 )
-                                st.session_state.decrypted_cache[msg_id] = {
-                                    "media_data": base64.b64decode(
-                                        dec_b64.encode("utf-8")
-                                    )
-                                }
-                            except Exception:
-                                pass
+                                try:
+                                    st.session_state.decrypted_cache[msg_id] = {
+                                        "media_data": base64.b64decode(
+                                            dec_b64.encode("utf-8")
+                                        )
+                                    }
+                                except Exception:
+                                    pass
                         else:
                             dec = decrypt_proportional(
                                 msg["cipher_text"], st.session_state.e2ee_key
@@ -343,6 +370,8 @@ def render_chat_stream():
                                     "mime_type", "application/octet-stream"
                                 ),
                             )
+                    else:
+                        st.error("❌ Không thể nạp dữ liệu tệp đính kèm.")
                 else:
                     raw_decrypted = cache.get("decrypted_text", "")
                     highlighted_text = re.sub(
@@ -361,7 +390,7 @@ def render_chat_stream():
 
 render_chat_stream()
 
-# 10. Ô NHẬP TIN NHẮN TẤT CẢ TRONG CƠ CHẾ SIÊU TỐC
+# 10. Ô NHẬP TIN NHẮN TẬP TRUNG GỬI NGẦM KHÔNG DELAY
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
@@ -375,10 +404,10 @@ if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào b�
         "tagged_user": tagged_str,
     }
 
-    # 1. Thêm trực tiếp vào màn hình hiện tại (Hiển thị tức thì 0.01s)
+    # Hiển thị tức thì local (0.01s)
     st.session_state.optimistic_msgs.append(msg_data)
 
-    # 2. Gửi ngầm tới máy chủ qua Tiến trình phụ (Background Thread)
+    # Đẩy ngầm Cloud qua thread phụ
     threading.Thread(
         target=async_send_to_supabase, args=(msg_data,), daemon=True
     ).start()
