@@ -8,7 +8,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN & MÀU CHỮ CỐ ĐỊNH CHO TẤT CẢ THIẾT BỊ
+# 1. CẤU HÌNH GIAO DIỆN CYBER DARK CHUẨN
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -22,12 +22,6 @@ st.markdown(
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
-    }
-    /* ÉP TẤT CẢ CHỮ TRONG KHUNG CHAT THÀNH MÀU TRẮNG */
-    div[data-testid="stChatMessage"] p, 
-    div[data-testid="stChatMessage"] span, 
-    div[data-testid="stChatMessage"] div {
-        color: #ffffff !important;
     }
     div[data-testid="stChatInput"] textarea {
         color: #0f172a !important;
@@ -56,6 +50,29 @@ st.markdown(
         border-radius: 4px;
         font-weight: bold;
     }
+
+    /* KHUNG HIỂN THỊ NỘI DUNG GỐC DỄ NHÌN, CHỮ TRẮNG NỔI BẬT */
+    .msg-original {
+        color: #ffffff !important;
+        background-color: #0f172a;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border-left: 4px solid #38bdf8;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+    .msg-translation {
+        color: #e2e8f0 !important;
+        background-color: #1e293b;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border-left: 4px solid #0284c7;
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+
     button[data-testid="stPopoverButton"] {
         background-color: #0284c7 !important;
         color: #ffffff !important;
@@ -141,7 +158,7 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# 6. SIDEBAR
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -198,11 +215,11 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s siêu tốc.")
+st.caption("Trò chuyện bảo mật E2EE — Tốc độ cao & Giao diện chuẩn.")
 st.divider()
 
 
-# 8. DÒNG CHAT HIỂN THỊ CHỮ TRẮNG NỔI BẬT KHÔNG BỊ NỀN ĐEN ĐÈ
+# 8. DÒNG CHAT XỬ LÝ NỘI DUNG GỐC CHỮ TRẮNG DỄ NHÌN
 @st.fragment(run_every=1)
 def render_chat_stream():
     db_messages = []
@@ -296,10 +313,7 @@ def render_chat_stream():
             if msg_id in st.session_state.expanded_msgs:
                 cache = st.session_state.decrypted_cache.get(msg_id, {})
                 if is_media:
-                    st.markdown(
-                        f'<div style="color: #ffffff !important; margin-bottom: 6px;">📎 Tệp gốc: <b>{msg.get("file_name", "")}</b></div>',
-                        unsafe_allow_html=True,
-                    )
+                    st.write(f"📎 Tệp gốc: **{msg.get('file_name', '')}**")
                     media_bytes = cache.get("media_data")
                     if media_bytes:
                         if media_k == "image":
@@ -327,20 +341,23 @@ def render_chat_stream():
                         raw_decrypted,
                     )
 
-                    # ĐÉP CHỮ TRẮNG CỐ ĐỊNH QUA INLINE HTML
+                    # TÁCH RIÊNG THẺ NỘI DUNG GỐC ĐỂ CHỮ NỔI BẬT DỄ ĐỌC
                     st.markdown(
-                        f'<div style="color: #ffffff !important; font-size: 1.05rem; margin-top: 6px; margin-bottom: 8px;">💬 <b>Nội dung gốc:</b> {highlighted_text}</div>',
+                        f'<div class="msg-original">💬 <b>Nội dung gốc:</b> {highlighted_text}</div>',
                         unsafe_allow_html=True,
                     )
-                    st.markdown(
-                        f'<div style="color: #ffffff !important; background-color: #1e293b; padding: 10px; border-radius: 8px; border: 1px solid #38bdf8; margin-top: 4px;">🌐 <b>Bản dịch (Tiếng Việt):</b> {cache.get("translated_text", "")}</div>',
-                        unsafe_allow_html=True,
-                    )
+
+                    translated_txt = cache.get("translated_text", "")
+                    if translated_txt:
+                        st.markdown(
+                            f'<div class="msg-translation">🌐 <b>Bản dịch:</b> {translated_txt}</div>',
+                            unsafe_allow_html=True,
+                        )
 
 
 render_chat_stream()
 
-# 9. POPOVER GỬI MEDIA NGAY TRÊN KHUNG CHAT
+# 9. NÚT ĐÍNH KÈM MEDIA
 with st.popover(
     "📎 **Gửi Ảnh, Video hoặc File (Mã hóa E2EE)**", use_container_width=True
 ):
