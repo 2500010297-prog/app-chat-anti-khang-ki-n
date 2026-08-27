@@ -155,75 +155,81 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-if "custom_avatar" not in st.session_state:
-    st.session_state.custom_avatar = None
+# AVATAR MẶC ĐỊNH BỀN VỮNG
+if "user_avatar" not in st.session_state:
+    st.session_state.user_avatar = "🤖"
 
 
-# HÀM CALLBACK XỬ LÝ ẢNH AVATAR NGAY KHI TẢI LÊN (CHỐNG MẤT KHI RERUN)
-def process_custom_avatar():
+# HÀM CALLBACK CẬP NHẬT AVATAR TỰ ĐỘNG KHÔNG BỊ MẤT
+def update_custom_avatar():
     file = st.session_state.get("uploaded_avatar_file")
     if file is not None:
         try:
             file.seek(0)
             img = Image.open(file)
-            img.thumbnail((60, 60))
+            img.thumbnail((80, 80))
             buffer = BytesIO()
-            img.save(buffer, format="JPEG", quality=60)
+            img.save(buffer, format="JPEG", quality=70)
             b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            st.session_state.custom_avatar = f"data:image/jpeg;base64,{b64_img}"
+            st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
         except Exception:
             pass
 
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH
+def update_emoji_avatar():
+    st.session_state.user_avatar = st.session_state.get(
+        "emoji_select", "🤖"
+    )
+
+
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (TỐI ƯU AVATAR CỐ ĐỊNH)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
-avatar_type = st.sidebar.radio(
-    "🎨 Kiểu Avatar:",
-    ["Emoji có sẵn", "Tải ảnh từ thiết bị"],
-    key="avatar_choice_type",
+st.sidebar.markdown("---")
+st.sidebar.subheader("🎨 Cấu hình Avatar")
+
+# Chọn Emoji
+st.sidebar.selectbox(
+    "🎭 Chọn biểu tượng Emoji:",
+    [
+        "🤖",
+        "👾",
+        "🧠",
+        "🔮",
+        "🥷",
+        "🦊",
+        "👑",
+        "🔥",
+        "🦄",
+        "🐱",
+        "🐶",
+        "🐼",
+        "🦁",
+        "🚀",
+        "🛡️",
+        "😎",
+    ],
+    key="emoji_select",
+    on_change=update_emoji_avatar,
 )
 
-if avatar_type == "Emoji có sẵn":
-    user_avatar = st.sidebar.selectbox(
-        "🎭 Chọn biểu tượng:",
-        [
-            "🤖",
-            "👾",
-            "🧠",
-            "🔮",
-            "🥷",
-            "🦊",
-            "👑",
-            "🔥",
-            "🦄",
-            "🐱",
-            "🐶",
-            "🐼",
-            "🦁",
-            "🚀",
-            "🛡️",
-            "😎",
-        ],
-        index=0,
-    )
+# Hoặc tải ảnh lên
+st.sidebar.file_uploader(
+    "📤 Hoặc tải ảnh từ thiết bị:",
+    type=["png", "jpg", "jpeg"],
+    key="uploaded_avatar_file",
+    on_change=update_custom_avatar,
+)
+
+# Hiển thị xem trước Avatar đang hoạt động
+st.sidebar.write("**Avatar đang dùng:**")
+if st.session_state.user_avatar.startswith("data:image"):
+    st.sidebar.image(st.session_state.user_avatar, width=60)
 else:
-    st.sidebar.file_uploader(
-        "📤 Chọn ảnh từ máy (PNG, JPG):",
-        type=["png", "jpg", "jpeg"],
-        key="uploaded_avatar_file",
-        on_change=process_custom_avatar,
-    )
-    if st.session_state.custom_avatar:
-        user_avatar = st.session_state.custom_avatar
-        st.sidebar.image(
-            st.session_state.custom_avatar,
-            caption="Avatar của bạn",
-            width=60,
-        )
-    else:
-        user_avatar = "🤖"
+    st.sidebar.subheader(st.session_state.user_avatar)
+
+user_avatar = st.session_state.user_avatar
 
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
