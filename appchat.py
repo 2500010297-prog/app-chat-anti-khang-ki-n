@@ -6,7 +6,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN LIGHTWEIGHT FOR MOBILE
+# 1. CẤU HÌNH GIAO DIỆN HIGH-CONTRAST (CHỐNG TRÙNG MÀU NỀN)
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -14,33 +14,63 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    /* Nền ứng dụng */
     .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+        background: #0b0f19 !important;
         color: #f8fafc !important;
     }
+    
+    /* Chữ hiển thị trong Chat & Markdown */
+    .stMarkdown, p, span, label {
+        color: #f8fafc !important;
+    }
+    
+    /* Khối mã hóa Text / Code block (Chữ xanh Cyan tương phản cao) */
+    code, pre {
+        background-color: #161e2e !important;
+        color: #00f2fe !important;
+        font-weight: 600 !important;
+        border: 1px solid #1e293b !important;
+    }
+    
+    /* Ô nhập tin nhắn */
     div[data-testid="stChatInput"] textarea {
-        color: #0f172a !important;
-        background-color: #f1f5f9 !important;
+        color: #ffffff !important;
+        background-color: #1e293b !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
     }
     div[data-testid="stChatInput"] {
-        border: 1px solid #38bdf8 !important;
+        border: 1.5px solid #38bdf8 !important;
         border-radius: 12px !important;
+        background-color: #1e293b !important;
     }
+    
+    /* Ô nhập Sidebar */
     .stTextInput input {
         background-color: #1e293b !important;
-        color: #f8fafc !important;
+        color: #ffffff !important;
+        border: 1px solid #475569 !important;
     }
+    
+    /* Thông báo Info / Success (Chữ trắng rõ ràng) */
+    div[data-testid="stNotification"] {
+        background-color: #1e293b !important;
+        border: 1px solid #38bdf8 !important;
+    }
+    div[data-testid="stNotification"] p {
+        color: #ffffff !important;
+    }
+
     .sender-name {
-        color: #38bdf8;
+        color: #38bdf8 !important;
         font-weight: bold;
         font-size: 1.05rem;
         margin-bottom: 4px;
     }
     .tag-inline {
         background-color: #0284c7;
-        color: #ffffff;
+        color: #ffffff !important;
         padding: 2px 6px;
         border-radius: 4px;
         font-weight: bold;
@@ -51,7 +81,18 @@ st.markdown(
 )
 
 
-# 2. THUẬT TOÁN MÃ HÓA E2EE TỐI ƯU TỐC ĐỘ
+# 2. HÀM DỊCH SIÊU TỐC (CÓ CACHE CHỐNG LAG)
+@st.cache_data(show_spinner=False)
+def fast_translate(text: str) -> str:
+    if not text.strip():
+        return ""
+    try:
+        return GoogleTranslator(source="auto", target="vi").translate(text)
+    except Exception:
+        return text
+
+
+# 3. THUẬT TOÁN MÃ HÓA E2EE
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -75,7 +116,7 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CÓ CACHE (CHỐNG LAG MOBILE)
+# 4. KẾT NỐI SUPABASE
 SUPABASE_URL = "https://mrsqzgghcijgujaerdxp.supabase.co".strip()
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yc3F6Z2doY2lqZ3VqYWVyZHhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4MzQwNjEsImV4cCI6MjEwMzQxMDA2MX0.UQ2s9VRtnPW9EqzPPW4Ywx3blCG3d1OeSM3WJ23CEmA".strip()
 
@@ -90,7 +131,7 @@ def init_supabase():
 
 supabase_client = init_supabase()
 
-# 4. KHỞI TẠO BỘ NHỚ ĐỆM ĐỘC LẬP
+# 5. KHỞI TẠO BỘ NHỚ ĐỆM
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -100,7 +141,7 @@ if "decrypted_cache" not in st.session_state:
 if "expanded_msgs" not in st.session_state:
     st.session_state.expanded_msgs = set()
 
-# 5. THANH SIDEBAR
+# 6. SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -115,7 +156,7 @@ if avatar_type == "Emoji / Bot có sẵn":
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
     user_avatar = Image.open(uploaded_avatar) if uploaded_avatar else "🤖"
 
@@ -125,15 +166,15 @@ with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
 st.sidebar.markdown("---")
 st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
-# 6. TIÊU ĐỀ ỨNG DỤNG
+# 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
 st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time PC & Mobile.")
 st.divider()
 
-# 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
+# 8. GỬI MEDIA MÃ HÓA
 with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
     file_upload = st.file_uploader(
-        "Chọn file đính kèm (Ảnh HD, Video MP4, PDF...):", key="media_uploader"
+        "Chọn file đính kèm:", key="media_uploader"
     )
     if st.button("📤 Gửi File Mã Hóa", use_container_width=True):
         if file_upload is not None:
@@ -173,7 +214,7 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             st.rerun()
 
 
-# 8. KHU VỰC HIỂN THỊ TIN NHẮN TỰ ĐỘNG ĐỒNG BỘ (RUN EVERY 3S)
+# 9. DÒNG THỜI GIAN TIN NHẮN REAL-TIME (3S)
 @st.fragment(run_every=3)
 def render_chat_stream():
     messages = []
@@ -229,12 +270,7 @@ def render_chat_stream():
                             dec = decrypt_proportional(
                                 msg["cipher_text"], st.session_state.e2ee_key
                             )
-                            try:
-                                trans = GoogleTranslator(
-                                    source="auto", target="vi"
-                                ).translate(dec)
-                            except Exception:
-                                trans = dec
+                            trans = fast_translate(dec)
                             st.session_state.decrypted_cache[msg_id] = {
                                 "decrypted_text": dec,
                                 "translated_text": trans,
@@ -278,7 +314,7 @@ def render_chat_stream():
 
 render_chat_stream()
 
-# 9. Ô NHẬP TIN NHẮN
+# 10. Ô NHẬP TIN NHẮN
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
