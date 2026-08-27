@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import re
 from deep_translator import GoogleTranslator
 from PIL import Image
 import streamlit as st
@@ -27,16 +28,15 @@ st.markdown(
         border: 1px solid #38bdf8 !important;
         border-radius: 12px !important;
     }
-    .stTextInput input, div[data-baseweb="select"] {
+    .stTextInput input {
         background-color: #1e293b !important;
         color: #f8fafc !important;
     }
-    .tag-badge {
+    .tag-inline {
         background-color: #0284c7;
         color: #ffffff;
-        padding: 2px 8px;
-        border-radius: 6px;
-        font-size: 0.85rem;
+        padding: 2px 6px;
+        border-radius: 4px;
         font-weight: bold;
     }
 </style>
@@ -69,7 +69,7 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KẾT NỐI SUPABASE CLOUD (XỬ LÝ CHUẨN KÝ TỰ CHỐNG LỖI UNICODE)
+# 3. KẾT NỐI SUPABASE CLOUD (ĐÃ LÀM SẠCH CHUỖI KHÓA)
 SUPABASE_URL = "https://mrsqzgghcijguajerdxp.supabase.co".strip()
 SUPABASE_KEY = "DÁN_ANON_KEY_CỦA_BẠN_VÀO_ĐÂY".strip()
 
@@ -131,7 +131,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Lưu trữ Cloud vĩnh viễn.")
+st.caption("Trò chuyện bảo mật E2EE — Tự động nhận diện @Tag ngay trong tin nhắn.")
 st.divider()
 
 # 7. KHU VỰC GỬI FILE MEDIA MÃ HÓA
@@ -181,12 +181,6 @@ for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg["sender_name"], avatar=msg.get("avatar", "🤖")
     ):
-        if msg.get("tagged_user") and msg["tagged_user"] != "(Không tag)":
-            st.markdown(
-                f"<span class='tag-badge'>🏷️ @{msg['tagged_user']}</span>",
-                unsafe_allow_html=True,
-            )
-
         st.code(msg["cipher_text"], language="text")
 
         col1, col2 = st.columns([1.5, 3])
@@ -239,24 +233,24 @@ for idx, msg in enumerate(st.session_state.messages):
                         mime=msg["mime_type"],
                     )
             else:
-                st.success(f"💬 **Nội dung gốc:** {msg['decrypted_text']}")
+                # Nổi bật cụm @thành_viên khi giải mã tin nhắn
+                raw_decrypted = msg["decrypted_text"]
+                highlighted_text = re.sub(
+                    r"(@\w+)", r'<span class="tag-inline">\1</span>', raw_decrypted
+                )
+                st.markdown(
+                    f"💬 **Nội dung gốc:** {highlighted_text}",
+                    unsafe_allow_html=True,
+                )
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 9. DANH SÁCH THÀNH VIÊN VÀ Ô CHAT ĐẶT LIỀN NHAU Ở ĐÁY MÀN HÌNH
-member_list = [
-    "(Không tag)",
-    "User_Alpha",
-    "User_Beta",
-    "Khang",
-    "Kiên",
-    "N.Đ.K",
-    "Tất cả (@all)",
-]
-selected_tag = st.selectbox("🏷️ Chọn thành viên cần tag:", member_list, index=0)
+# 9. Ô NHẬP TIN NHẮN TRỰC TIẾP (HỖ TRỢ @TAG TRONG CÂU)
+if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
+    # Tự động trích xuất các tên được tag dạng @name để lưu DB
+    tags_found = re.findall(r"@(\w+)", user_input)
+    tagged_str = ", ".join(tags_found) if tags_found else ""
 
-if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
-    tag_val = "" if selected_tag == "(Không tag)" else selected_tag
     cipher_text = encrypt_proportional(
         user_input, st.session_state.e2ee_key
     )
@@ -265,7 +259,7 @@ if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
         "sender_name": user_name,
         "avatar": user_avatar if isinstance(user_avatar, str) else "🤖",
         "cipher_text": cipher_text,
-        "tagged_user": tag_val,
+        "tagged_user": tagged_str,
     }
 
     if supabase_client:
