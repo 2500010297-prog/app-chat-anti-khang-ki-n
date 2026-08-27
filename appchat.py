@@ -6,7 +6,7 @@ import streamlit as st
 
 # 1. CẤU HÌNH GIAO DIỆN CYBER DARK
 st.set_page_config(
-    page_title="E2EE Secure Chat", page_icon="🔒", layout="centered"
+    page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
 
 st.markdown(
@@ -70,9 +70,9 @@ if "e2ee_key" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 4. THANH SIDEBAR (ĐÃ BỎ EMAIL)
+# 4. THANH SIDEBAR
 st.sidebar.title("⚙️ Thẻ Định Danh")
-user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="AI Bot User")
+user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User Anti")
 
 avatar_type = st.sidebar.radio(
     "🎨 Kiểu Avatar:", ["Emoji / Bot có sẵn", "Tự tải ảnh lên"]
@@ -90,16 +90,15 @@ else:
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
 
-# CHỈ GIỮ LẠI TÊN TÁC GIẢ N.Đ.K
 st.sidebar.markdown("---")
 st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
-# 5. TIÊU ĐỀ ỨNG DỤNG
-st.title("🔒 E2EE Cyber Chat Pro")
-st.caption("Hỗ trợ gửi Tin nhắn, Ảnh HD, Video & Tệp đính kèm mã hóa E2EE.")
+# 5. TIÊU ĐỀ ỨNG DỤNG MỚI (ANTI KHANG KIÊN)
+st.title("🔒 Anti KHANG KIÊN")
+st.caption("Trò chuyện không lưu vết — Hỗ trợ Tin nhắn, Ảnh HD, Video & File mã hóa E2EE.")
 st.divider()
 
-# 6. KHU VỰC ĐĂNG ẢNH HD, VIDEO HOẶC FILE MÃ HÓA
+# 6. KHU VỰC ĐĂNG MEDIA MÃ HÓA E2EE
 with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
     file_upload = st.file_uploader(
         "Chọn file đính kèm (Ảnh HD, Video MP4, PDF...):", key="media_uploader"
@@ -107,7 +106,6 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
     if st.button("📤 Gửi File Mã Hóa", use_container_width=True):
         if file_upload is not None:
             file_bytes = file_upload.read()
-            # Chuyển file sang Base64 và mã hóa E2EE
             b64_file = base64.b64encode(file_bytes).decode("utf-8")
             cipher_file = encrypt_proportional(
                 b64_file, st.session_state.e2ee_key
@@ -152,7 +150,6 @@ for idx, msg in enumerate(st.session_state.messages):
             if st.button(btn_label, key=f"btn_{idx}"):
                 if "raw_cipher_media" in msg:
                     if msg["decrypted_media"] is None:
-                        # Giải mã Media E2EE
                         dec_b64 = decrypt_proportional(
                             msg["raw_cipher_media"], st.session_state.e2ee_key
                         )
@@ -175,7 +172,6 @@ for idx, msg in enumerate(st.session_state.messages):
                 msg["show_trans"] = not msg["show_trans"]
                 st.rerun()
 
-        # Hiển thị nội dung sau khi nhấn Giải mã
         if msg.get("show_trans"):
             if "raw_cipher_media" in msg:
                 st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
