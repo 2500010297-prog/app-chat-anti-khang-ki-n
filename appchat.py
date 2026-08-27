@@ -16,67 +16,16 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-    html {
-        scroll-behavior: smooth;
-    }
-    .stApp {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-        color: #f8fafc !important;
-    }
-    div[data-testid="stChatInput"] textarea {
-        color: #0f172a !important;
-        background-color: #f1f5f9 !important;
-        font-weight: 600 !important;
-        font-size: 1rem !important;
-    }
-    div[data-testid="stChatInput"] {
-        border: 1px solid #38bdf8 !important;
-        border-radius: 12px !important;
-    }
-    .stTextInput input {
-        background-color: #1e293b !important;
-        color: #f8fafc !important;
-    }
-    .sender-name {
-        color: #38bdf8 !important;
-        font-weight: bold;
-        font-size: 1.05rem;
-        margin-bottom: 4px;
-    }
-    .tag-inline {
-        background-color: #0284c7;
-        color: #ffffff !important;
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-weight: bold;
-    }
-    .msg-original {
-        color: #ffffff !important;
-        background-color: #0f172a;
-        padding: 10px 14px;
-        border-radius: 8px;
-        border-left: 4px solid #38bdf8;
-        margin-top: 8px;
-        margin-bottom: 8px;
-        font-size: 1rem;
-        line-height: 1.5;
-    }
-    .msg-translation {
-        color: #e2e8f0 !important;
-        background-color: #1e293b;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border-left: 4px solid #0284c7;
-        margin-bottom: 8px;
-        font-size: 0.95rem;
-    }
-    button[data-testid="stPopoverButton"] {
-        background-color: #0284c7 !important;
-        color: #ffffff !important;
-        border-radius: 8px !important;
-        border: none !important;
-        font-weight: bold !important;
-    }
+    html { scroll-behavior: smooth; }
+    .stApp { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; color: #f8fafc !important; }
+    div[data-testid="stChatInput"] textarea { color: #0f172a !important; background-color: #f1f5f9 !important; font-weight: 600 !important; font-size: 1rem !important; }
+    div[data-testid="stChatInput"] { border: 1px solid #38bdf8 !important; border-radius: 12px !important; }
+    .stTextInput input { background-color: #1e293b !important; color: #f8fafc !important; }
+    .sender-name { color: #38bdf8 !important; font-weight: bold; font-size: 1.05rem; margin-bottom: 4px; }
+    .tag-inline { background-color: #0284c7; color: #ffffff !important; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+    .msg-original { color: #ffffff !important; background-color: #0f172a; padding: 10px 14px; border-radius: 8px; border-left: 4px solid #38bdf8; margin-top: 8px; margin-bottom: 8px; font-size: 1rem; line-height: 1.5; }
+    .msg-translation { color: #e2e8f0 !important; background-color: #1e293b; padding: 8px 12px; border-radius: 8px; border-left: 4px solid #0284c7; margin-bottom: 8px; font-size: 0.95rem; }
+    button[data-testid="stPopoverButton"] { background-color: #0284c7 !important; color: #ffffff !important; border-radius: 8px !important; border: none !important; font-weight: bold !important; }
 </style>
 """,
     unsafe_allow_html=True,
@@ -142,7 +91,13 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHỞI TẠO BỘ NHỚ TẠM THỜI
+# 5. KHÓA CỨNG BỘ NHỚ ĐỊNH DẠNH (PERSISTENT STATE)
+if "saved_user_name" not in st.session_state:
+    st.session_state.saved_user_name = "User_Alpha"
+
+if "saved_user_avatar" not in st.session_state:
+    st.session_state.saved_user_avatar = "🤖"
+
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -155,14 +110,18 @@ if "expanded_msgs" not in st.session_state:
 if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
-# AVATAR MẶC ĐỊNH BỀN VỮNG
-if "user_avatar" not in st.session_state:
-    st.session_state.user_avatar = "🤖"
+
+# HÀM CẬP NHẬT CHỈ CHẠY KHU BẠN CHỦ ĐỘNG THAY ĐỔI
+def on_name_change():
+    st.session_state.saved_user_name = st.session_state.widget_name_input
 
 
-# HÀM CALLBACK CẬP NHẬT AVATAR TỰ ĐỘNG KHÔNG BỊ MẤT
-def update_custom_avatar():
-    file = st.session_state.get("uploaded_avatar_file")
+def on_emoji_change():
+    st.session_state.saved_user_avatar = st.session_state.widget_emoji_select
+
+
+def on_file_upload_change():
+    file = st.session_state.widget_file_upload
     if file is not None:
         try:
             file.seek(0)
@@ -171,25 +130,24 @@ def update_custom_avatar():
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=70)
             b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
+            st.session_state.saved_user_avatar = f"data:image/jpeg;base64,{b64_img}"
         except Exception:
             pass
 
 
-def update_emoji_avatar():
-    st.session_state.user_avatar = st.session_state.get(
-        "emoji_select", "🤖"
-    )
-
-
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (TỐI ƯU AVATAR CỐ ĐỊNH)
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (KHÓA CỨNG DỮ LIỆU)
 st.sidebar.title("⚙️ Thẻ Định Danh")
-user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
+
+st.sidebar.text_input(
+    "👤 Biệt danh của bạn:",
+    value=st.session_state.saved_user_name,
+    key="widget_name_input",
+    on_change=on_name_change,
+)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎨 Cấu hình Avatar")
 
-# Chọn Emoji
 st.sidebar.selectbox(
     "🎭 Chọn biểu tượng Emoji:",
     [
@@ -210,26 +168,26 @@ st.sidebar.selectbox(
         "🛡️",
         "😎",
     ],
-    key="emoji_select",
-    on_change=update_emoji_avatar,
+    key="widget_emoji_select",
+    on_change=on_emoji_change,
 )
 
-# Hoặc tải ảnh lên
 st.sidebar.file_uploader(
-    "📤 Hoặc tải ảnh từ thiết bị:",
+    "📤 Tải ảnh từ thiết bị:",
     type=["png", "jpg", "jpeg"],
-    key="uploaded_avatar_file",
-    on_change=update_custom_avatar,
+    key="widget_file_upload",
+    on_change=on_file_upload_change,
 )
 
-# Hiển thị xem trước Avatar đang hoạt động
-st.sidebar.write("**Avatar đang dùng:**")
-if st.session_state.user_avatar.startswith("data:image"):
-    st.sidebar.image(st.session_state.user_avatar, width=60)
-else:
-    st.sidebar.subheader(st.session_state.user_avatar)
+# GÁN NỘI DUNG ĐÃ KHÓA CỨNG CỦA NGUỜI DÙNG
+user_name = st.session_state.saved_user_name
+user_avatar = st.session_state.saved_user_avatar
 
-user_avatar = st.session_state.user_avatar
+st.sidebar.write("**Avatar đang dùng:**")
+if user_avatar.startswith("data:image"):
+    st.sidebar.image(user_avatar, width=60)
+else:
+    st.sidebar.subheader(user_avatar)
 
 with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
     st.code(st.session_state.e2ee_key, language="text")
