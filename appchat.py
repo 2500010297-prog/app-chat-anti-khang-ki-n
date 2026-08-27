@@ -1,8 +1,10 @@
 import base64
 import hashlib
+
 from deep_translator import GoogleTranslator
 from PIL import Image
 import streamlit as st
+from supabase import create_client
 
 # 1. CẤU HÌNH GIAO DIỆN CYBER DARK
 st.set_page_config(
@@ -16,22 +18,27 @@ st.markdown(
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
     }
-    
     div[data-testid="stChatInput"] textarea {
         color: #0f172a !important;
         background-color: #f1f5f9 !important;
         font-weight: 600 !important;
         font-size: 1rem !important;
     }
-    
     div[data-testid="stChatInput"] {
         border: 1px solid #38bdf8 !important;
         border-radius: 12px !important;
     }
-
     .stTextInput input, div[data-baseweb="select"] {
         background-color: #1e293b !important;
         color: #f8fafc !important;
+    }
+    .tag-badge {
+        background-color: #0284c7;
+        color: #ffffff;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: bold;
     }
 </style>
 """,
@@ -39,7 +46,7 @@ st.markdown(
 )
 
 
-# 2. THUẬT TOÁN MÃ HÓA E2EE (VĂN BẢN & MEDIA HD)
+# 2. THUẬT TOÁN MÃ HÓA E2EE (STREAM CIPHER)
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -63,23 +70,55 @@ def decrypt_proportional(cipher_str: str, key_str: str) -> str:
         return "[Lỗi giải mã]"
 
 
-# 3. KHỞI TẠO BỘ NHỚ
+# 3. KẾT NỐI SUPABASE CLOUD (LƯU VĨNH VIỄN 24/7)
+st.sidebar.title("🌐 Kết Nối Đám Mây")
+supabase_url = st.sidebar.text_input(
+    "Supabase URL:", type="password", placeholder="https://xyz.supabase.co"
+)
+supabase_key = st.sidebar.text_input(
+    "Supabase Anon Key:", type="password", placeholder="eyJhbG..."
+)
+
+supabase_client = None
+if supabase_url and supabase_key:
+    try:
+        supabase_client = create_client(supabase_url, supabase_key)
+        st.sidebar.success("⚡ Đã kết nối Supabase Cloud!")
+    except Exception as e:
+        st.sidebar.error("Lỗi kết nối Supabase!")
+
+# 4. KHỞI TẠO BỘ NHỚ LOCAL
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 4. THANH SIDEBAR
+# Tải tin nhắn từ Cloud nếu đã kết nối
+if supabase_client:
+    try:
+        res = (
+            supabase_client.table("messages")
+            .select("*")
+            .order("id", desc=False)
+            .execute()
+        )
+        st.session_state.messages = res.data
+    except Exception:
+        pass
+
+# 5. THANH SIDEBAR & THẺ ĐỊNH DANH
 st.sidebar.title("⚙️ Thẻ Định Danh")
-user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User Anti")
+user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
 avatar_type = st.sidebar.radio(
     "🎨 Kiểu Avatar:", ["Emoji / Bot có sẵn", "Tự tải ảnh lên"]
 )
 if avatar_type == "Emoji / Bot có sẵn":
     user_avatar = st.sidebar.selectbox(
-        "🎭 Chọn biểu tượng:", ["🤖", "👾", "🧠", "🔮", "🥷", "🦊", "👑"], index=0
+        "🎭 Chọn biểu tượng:",
+        ["🤖", "👾", "🧠", "🔮", "🥷", "🦊", "👑", "🔥", "🦄"],
+        index=0,
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
@@ -93,12 +132,26 @@ with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
 st.sidebar.markdown("---")
 st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
-# 5. TIÊU ĐỀ ỨNG DỤNG MỚI (ANTI KHANG KIÊN)
+# 6. TIÊU ĐỀ ỨNG DỤNG
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện không lưu vết — Hỗ trợ Tin nhắn, Ảnh HD, Video & File mã hóa E2EE.")
+st.caption("Trò chuyện bảo mật E2EE — Lưu trữ Cloud vĩnh viễn & Gắn thẻ bạn bè.")
 st.divider()
 
-# 6. KHU VỰC ĐĂNG MEDIA MÃ HÓA E2EE
+# 7. CHỨC NĂNG GẮN THẺ (@TAG) VÀ KHU VỰC EMOJI
+st.subheader("📌 Tùy chọn gửi tin nhắn")
+col_tag, col_emoji = st.columns([1, 1])
+
+with col_tag:
+    tagged_friend = st.text_input(
+        "🏷️ Gắn thẻ bạn bè (@tag):",
+        placeholder="Nhập tên người cần tag (VD: User_Beta)...",
+    )
+
+st.markdown("**😃 Bàn phím Emoji nhanh (Click để chép):**")
+emoji_list = ["👍", "❤️", "🔥", "😂", "🎉", "💩", "🛡️", "⚡", "🚀", "🤫", "🎯"]
+st.write(" ".join(emoji_list))
+
+# 8. GỬI FILE MÃ HÓA MEDIA E2EE
 with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hóa E2EE)**"):
     file_upload = st.file_uploader(
         "Chọn file đính kèm (Ảnh HD, Video MP4, PDF...):", key="media_uploader"
@@ -118,38 +171,52 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             elif "video" in mime:
                 media_kind = "video"
 
-            st.session_state.messages.append(
-                {
-                    "sender_name": user_name,
-                    "avatar": user_avatar,
-                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
-                    "raw_cipher_media": cipher_file,
-                    "media_kind": media_kind,
-                    "file_name": file_upload.name,
-                    "mime_type": mime,
-                    "decrypted_media": None,
-                    "show_trans": False,
-                }
-            )
+            msg_data = {
+                "sender_name": user_name,
+                "avatar": (
+                    user_avatar
+                    if isinstance(user_avatar, str)
+                    else "🤖"
+                ),
+                "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
+                "raw_cipher_media": cipher_file,
+                "media_kind": media_kind,
+                "file_name": file_upload.name,
+                "mime_type": mime,
+                "tagged_user": tagged_friend.strip(),
+            }
+
+            if supabase_client:
+                supabase_client.table("messages").insert(msg_data).execute()
+            else:
+                st.session_state.messages.append(msg_data)
+
             st.rerun()
 
-# 7. HIỂN THỊ DANH SÁCH TIN NHẮN & MEDIA
+# 9. HIỂN THỊ DANH SÁCH TIN NHẮN
 for idx, msg in enumerate(st.session_state.messages):
     with st.chat_message(
         msg["sender_name"], avatar=msg.get("avatar", "🤖")
     ):
+        # Hiển thị thẻ @Tag nếu có
+        if msg.get("tagged_user"):
+            st.markdown(
+                f"<span class='tag-badge'>🏷️ @{msg['tagged_user']}</span>",
+                unsafe_allow_html=True,
+            )
+
         st.code(msg["cipher_text"], language="text")
 
         col1, col2 = st.columns([1.5, 3])
         with col1:
             btn_label = (
                 "🔓 Giải mã Media"
-                if "raw_cipher_media" in msg
+                if "raw_cipher_media" in msg and msg["raw_cipher_media"]
                 else "🔓 Giải mã & Dịch"
             )
             if st.button(btn_label, key=f"btn_{idx}"):
-                if "raw_cipher_media" in msg:
-                    if msg["decrypted_media"] is None:
+                if "raw_cipher_media" in msg and msg["raw_cipher_media"]:
+                    if msg.get("decrypted_media") is None:
                         dec_b64 = decrypt_proportional(
                             msg["raw_cipher_media"], st.session_state.e2ee_key
                         )
@@ -169,11 +236,11 @@ for idx, msg in enumerate(st.session_state.messages):
                         except Exception:
                             msg["translated_text"] = dec
 
-                msg["show_trans"] = not msg["show_trans"]
+                msg["show_trans"] = not msg.get("show_trans", False)
                 st.rerun()
 
         if msg.get("show_trans"):
-            if "raw_cipher_media" in msg:
+            if "raw_cipher_media" in msg and msg["raw_cipher_media"]:
                 st.success(f"📎 Tệp gốc: **{msg['file_name']}**")
                 if msg["media_kind"] == "image":
                     st.image(
@@ -194,19 +261,21 @@ for idx, msg in enumerate(st.session_state.messages):
                 if msg.get("translated_text"):
                     st.info(f"🌐 **Bản dịch (Tiếng Việt):** {msg['translated_text']}")
 
-# 8. Ô NHẬP TIN NHẮN VĂN BẢN
+# 10. Ô NHẬP TIN NHẮN VĂN BẢN
 if user_input := st.chat_input("Nhập tin nhắn tại đây..."):
     cipher_text = encrypt_proportional(
         user_input, st.session_state.e2ee_key
     )
-    st.session_state.messages.append(
-        {
-            "sender_name": user_name,
-            "avatar": user_avatar,
-            "cipher_text": cipher_text,
-            "decrypted_text": "",
-            "translated_text": "",
-            "show_trans": False,
-        }
-    )
+    msg_data = {
+        "sender_name": user_name,
+        "avatar": user_avatar if isinstance(user_avatar, str) else "🤖",
+        "cipher_text": cipher_text,
+        "tagged_user": tagged_friend.strip(),
+    }
+
+    if supabase_client:
+        supabase_client.table("messages").insert(msg_data).execute()
+    else:
+        st.session_state.messages.append(msg_data)
+
     st.rerun()
