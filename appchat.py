@@ -7,7 +7,7 @@ from PIL import Image
 import streamlit as st
 from supabase import create_client
 
-# 1. CẤU HÌNH GIAO DIỆN CYBER DARK
+# 1. CẤU HÌNH GIAO DIỆN & CHỐNG NHẢY SCROLL
 st.set_page_config(
     page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
 )
@@ -15,6 +15,9 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    html {
+        scroll-behavior: smooth;
+    }
     .stApp {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         color: #f8fafc !important;
@@ -60,7 +63,7 @@ st.markdown(
 )
 
 
-# 2. HÀM DỊCH CACHE CHỐNG LAG
+# 2. CACHE DỊCH THUẬT SIÊU TỐC
 @st.cache_data(show_spinner=False)
 def fast_translate(text: str) -> str:
     if not text.strip():
@@ -110,7 +113,7 @@ def init_supabase():
 
 supabase_client = init_supabase()
 
-# 5. KHỞI TẠO BỘ NHỚ ĐỆM
+# 5. KHỞI TẠO STATE TRÁNH TẢI LẠI TRANG
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
 
@@ -120,7 +123,7 @@ if "decrypted_cache" not in st.session_state:
 if "expanded_msgs" not in st.session_state:
     st.session_state.expanded_msgs = set()
 
-# 6. SIDEBAR - ĐỔI AVATAR TỪ THIẾT BỊ (NÉN TỰ ĐỘNG SIÊU NHẸ)
+# 6. SIDEBAR - CẤU HÌNH CÁ NHÂN
 st.sidebar.title("⚙️ Thẻ Định Danh")
 user_name = st.sidebar.text_input("👤 Biệt danh của bạn:", value="User_Alpha")
 
@@ -153,18 +156,17 @@ if avatar_type == "Emoji có sẵn":
     )
 else:
     uploaded_avatar = st.sidebar.file_uploader(
-        "📤 Chọn ảnh từ máy (PNG, JPG):", type=["png", "jpg", "jpeg"]
+        "📤 Chọn ảnh (PNG, JPG):", type=["png", "jpg", "jpeg"]
     )
     if uploaded_avatar:
         try:
-            # Thu nhỏ ảnh về 80x80 px để gửi tin nhắn siêu tốc
             img = Image.open(uploaded_avatar)
             img.thumbnail((80, 80))
             buffer = BytesIO()
             img.save(buffer, format="PNG")
             b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
             user_avatar = f"data:image/png;base64,{b64_img}"
-            st.sidebar.image(img, caption="Avatar đã nén nhẹ", width=70)
+            st.sidebar.image(img, caption="Avatar đã nén", width=70)
         except Exception:
             user_avatar = "🤖"
     else:
@@ -178,7 +180,7 @@ st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
 # 7. TIÊU ĐỀ
 st.title("🔒 Anti KHANG KIÊN")
-st.caption("Trò chuyện bảo mật E2EE — Tốc độ cao & Tiết kiệm băng thông.")
+st.caption("Trò chuyện bảo mật E2EE — Tốc độ cao & Mượt mà.")
 st.divider()
 
 # 8. GỬI MEDIA MÃ HÓA
@@ -220,22 +222,24 @@ with st.expander("📎 **Gửi Ảnh HD, Video hoặc Tệp đính kèm (Mã hó
             st.rerun()
 
 
-# 9. CHAT STREAM (LAZY LOADING)
-@st.fragment(run_every=2)
+# 9. CHAT STREAM GIỚI HẠN 50 TIN NHẮN GẦN NHẤT (CHỐNG GIẬT LAG)
+@st.fragment(run_every=3)
 def render_chat_stream():
     messages = []
     if supabase_client:
         try:
+            # Lấy 50 tin nhắn mới nhất để tối ưu tốc độ cuộn
             res = (
                 supabase_client.table("messages")
                 .select(
                     "id, sender_name, avatar, cipher_text, media_kind, file_name, mime_type, tagged_user"
                 )
-                .order("id", desc=False)
+                .order("id", desc=True)
+                .limit(50)
                 .execute()
             )
             if res.data:
-                messages = res.data
+                messages = list(reversed(res.data))
         except Exception:
             pass
 
@@ -293,7 +297,6 @@ def render_chat_stream():
                                 "decrypted_text": dec,
                                 "translated_text": trans,
                             }
-                st.rerun()
 
             if msg_id in st.session_state.expanded_msgs:
                 cache = st.session_state.decrypted_cache.get(msg_id, {})
@@ -334,7 +337,7 @@ def render_chat_stream():
 
 render_chat_stream()
 
-# 10. Ô NHẬP TIN NHẮN TẬP TRUNG
+# 10. Ô NHẬP TIN NHẮN TỐI ƯU GỬI TỨC THÌ
 if user_input := st.chat_input("Nhập tin nhắn... (Ví dụ: @Khang chào bạn nhé!)"):
     tags_found = re.findall(r"@(\w+)", user_input)
     tagged_str = ", ".join(tags_found) if tags_found else ""
