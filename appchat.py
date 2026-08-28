@@ -43,7 +43,18 @@ def fast_translate(text: str) -> str:
         return text
 
 
-# 3. THUẬT TOÁN MÃ HÓA E2EE
+# 3. THUẬT TOÁN MÃ HÓA E2EE & ÁNH XẠ KÝ TỰ CỔ ĐẠI (GIỮ NGUYÊN ĐỘ DÀI 100%)
+BASE64_CHARS = (
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+)
+EXOTIC_CHARS = (
+    "ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ☤☥☧☨☩☪☫☬"
+)
+
+ENCRYPT_MAP = str.maketrans(BASE64_CHARS, EXOTIC_CHARS)
+DECRYPT_MAP = str.maketrans(EXOTIC_CHARS, BASE64_CHARS)
+
+
 def encrypt_proportional(text: str, key_str: str) -> str:
     raw_bytes = text.encode("utf-8")
     key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
@@ -51,12 +62,16 @@ def encrypt_proportional(text: str, key_str: str) -> str:
     for i, b in enumerate(raw_bytes):
         k = key_bytes[i % len(key_bytes)] ^ ((i * 17) & 0xFF)
         cipher_bytes.append(b ^ k)
-    return base64.b64encode(cipher_bytes).decode("utf-8")
+    b64_str = base64.b64encode(cipher_bytes).decode("utf-8")
+    # Biến đổi 1:1 từ Base64 sang Ký tự cổ ngữ
+    return b64_str.translate(ENCRYPT_MAP)
 
 
 def decrypt_proportional(cipher_str: str, key_str: str) -> str:
     try:
-        cipher_bytes = base64.b64decode(cipher_str.encode("utf-8"))
+        # Chuyển ngược từ Ký tự cổ ngữ về Base64 chuẩn
+        b64_str = cipher_str.translate(DECRYPT_MAP)
+        cipher_bytes = base64.b64decode(b64_str.encode("utf-8"))
         key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
         raw_bytes = bytearray()
         for i, b in enumerate(cipher_bytes):
@@ -91,7 +106,7 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. BỘ NHỚ LƯU TRỮ VĨNH VIỄN (ĐỌC TỪ URL CHO CẢ MOBILE VA PC)
+# 5. BỘ NHỚ LƯU TRỮ VĨNH VIỄN
 query_params = st.query_params
 default_name = query_params.get("user", "User_Alpha")
 default_avatar = query_params.get("avatar", "👤")
@@ -121,7 +136,6 @@ if "optimistic_msgs" not in st.session_state:
 # 6. SIDEBAR - THẺ ĐỊNH DẠNH
 st.sidebar.title("⚙️ Thẻ Định Danh")
 
-# Ô nhập biệt danh
 input_name = st.sidebar.text_input(
     "👤 Biệt danh của bạn:",
     value=st.session_state.PERMA_NAME,
@@ -135,7 +149,6 @@ if input_name and input_name != st.session_state.PERMA_NAME:
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
-# Tải ảnh từ thiết bị - Tối ưu nén siêu cấp cho Mobile URL
 uploaded_avatar = st.sidebar.file_uploader(
     "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
@@ -145,7 +158,6 @@ if uploaded_avatar is not None:
     try:
         uploaded_avatar.seek(0)
         img = Image.open(uploaded_avatar).convert("RGB")
-        # Nén nhỏ 40x40px với chất lượng 40% để chuỗi Base64 cực kỳ ngắn (< 800 bytes)
         img.thumbnail((40, 40))
         buffer = BytesIO()
         img.save(buffer, format="JPEG", quality=40)
@@ -162,7 +174,6 @@ if uploaded_avatar is not None:
 user_name = st.session_state.PERMA_NAME
 user_avatar = st.session_state.PERMA_AVATAR
 
-# Hiển thị Avatar đang dùng
 st.sidebar.write("**Avatar đang dùng:**")
 if user_avatar.startswith("data:image"):
     st.sidebar.image(user_avatar, width=60)
@@ -221,6 +232,7 @@ def render_chat_stream():
                 f'<div class="sender-name">👤 {sender}</div>',
                 unsafe_allow_html=True,
             )
+            # Hiển thị chuỗi mã hóa dạng Ký Tự Cổ Ngữ
             st.code(msg["cipher_text"], language="text")
 
             btn_label = "🔓 Giải mã Nội dung"
