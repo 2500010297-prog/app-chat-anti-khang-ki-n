@@ -43,16 +43,109 @@ def fast_translate(text: str) -> str:
         return text
 
 
-# 3. THUẬT TOÁN MÃ HÓA E2EE & ÁNH XẠ KÝ TỰ CỔ ĐẠI (GIỮ NGUYÊN ĐỘ DÀI 100%)
-BASE64_CHARS = (
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
-)
-EXOTIC_CHARS = (
-    "ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ☤☥☧☨☩☪☫☬"
-)
+# 3. THUẬT TOÁN MÃ HÓA E2EE & CHUYỂN ĐỔI CHỮ NHIỄU (ZALGO / GLITCH TEXT)
+MARKS_ABOVE = [
+    "\u0300",
+    "\u0301",
+    "\u0302",
+    "\u0303",
+    "\u0304",
+    "\u0306",
+    "\u0307",
+    "\u0308",
+    "\u030a",
+    "\u030c",
+    "\u030e",
+    "\u0310",
+    "\u0312",
+    "\u0313",
+    "\u0314",
+    "\u033d",
+    "\u033e",
+    "\u0350",
+    "\u0351",
+    "\u0352",
+    "\u0357",
+    "\u035b",
+    "\u0363",
+    "\u0364",
+    "\u0365",
+    "\u0366",
+    "\u0367",
+    "\u0368",
+    "\u0369",
+    "\u036a",
+    "\u036b",
+    "\u036c",
+    "\u036d",
+    "\u036e",
+    "\u036f",
+]
+MARKS_MIDDLE = ["\u0335", "\u0336", "\u0337", "\u0338"]
+MARKS_BELOW = [
+    "\u0316",
+    "\u0317",
+    "\u0318",
+    "\u0319",
+    "\u031c",
+    "\u031d",
+    "\u031e",
+    "\u031f",
+    "\u0320",
+    "\u0324",
+    "\u0325",
+    "\u0326",
+    "\u0329",
+    "\u032a",
+    "\u032b",
+    "\u032c",
+    "\u032d",
+    "\u032e",
+    "\u032f",
+    "\u0330",
+    "\u0331",
+    "\u0332",
+    "\u0333",
+    "\u0339",
+    "\u033a",
+    "\u033b",
+    "\u033c",
+    "\u0345",
+    "\u0347",
+    "\u0348",
+    "\u0349",
+    "\u034d",
+    "\u034e",
+    "\u0353",
+    "\u0354",
+    "\u0355",
+    "\u0356",
+    "\u0359",
+    "\u035a",
+    "\u035c",
+    "\u035d",
+    "\u035e",
+    "\u035f",
+]
 
-ENCRYPT_MAP = str.maketrans(BASE64_CHARS, EXOTIC_CHARS)
-DECRYPT_MAP = str.maketrans(EXOTIC_CHARS, BASE64_CHARS)
+
+def to_zalgo_glitch(b64_str: str) -> str:
+    res = []
+    for i, ch in enumerate(b64_str):
+        idx = ord(ch) + i
+        mid = MARKS_MIDDLE[idx % len(MARKS_MIDDLE)]
+        above = MARKS_ABOVE[(idx * 7) % len(MARKS_ABOVE)]
+        below = MARKS_BELOW[(idx * 13) % len(MARKS_BELOW)]
+        res.append(f"{ch}{mid}{above}{below}")
+    return "".join(res)
+
+
+def strip_zalgo_glitch(zalgo_str: str) -> str:
+    return re.sub(
+        r"[\u0300-\u036f\u0488-\u0489\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]",
+        "",
+        zalgo_str,
+    )
 
 
 def encrypt_proportional(text: str, key_str: str) -> str:
@@ -63,14 +156,12 @@ def encrypt_proportional(text: str, key_str: str) -> str:
         k = key_bytes[i % len(key_bytes)] ^ ((i * 17) & 0xFF)
         cipher_bytes.append(b ^ k)
     b64_str = base64.b64encode(cipher_bytes).decode("utf-8")
-    # Biến đổi 1:1 từ Base64 sang Ký tự cổ ngữ
-    return b64_str.translate(ENCRYPT_MAP)
+    return to_zalgo_glitch(b64_str)
 
 
 def decrypt_proportional(cipher_str: str, key_str: str) -> str:
     try:
-        # Chuyển ngược từ Ký tự cổ ngữ về Base64 chuẩn
-        b64_str = cipher_str.translate(DECRYPT_MAP)
+        b64_str = strip_zalgo_glitch(cipher_str)
         cipher_bytes = base64.b64decode(b64_str.encode("utf-8"))
         key_bytes = hashlib.sha256(key_str.encode("utf-8")).digest()
         raw_bytes = bytearray()
@@ -232,7 +323,6 @@ def render_chat_stream():
                 f'<div class="sender-name">👤 {sender}</div>',
                 unsafe_allow_html=True,
             )
-            # Hiển thị chuỗi mã hóa dạng Ký Tự Cổ Ngữ
             st.code(msg["cipher_text"], language="text")
 
             btn_label = "🔓 Giải mã Nội dung"
