@@ -91,12 +91,12 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHÓA CỨNG BỘ NHỚ TOÀN CỤC (CHỈ LƯU TÊN VÀ ẢNH TẢI LÊN)
+# 5. BỘ NHỚ LƯU TRỮ ĐỘC LẬP (KHÔNG BỊ XÓA KHI ĐÓNG/MỞ SIDEBAR)
 if "user_name" not in st.session_state:
     st.session_state.user_name = "User_Alpha"
 
 if "user_avatar" not in st.session_state:
-    st.session_state.user_avatar = "👤"  # Avatar mặc định khi chưa tải ảnh
+    st.session_state.user_avatar = "👤"
 
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
@@ -111,50 +111,41 @@ if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
 
-# CALLBACK CẬP NHẬT TÊN VÀ ẢNH
-def cb_update_name():
-    st.session_state.user_name = st.session_state.w_name_input
-
-
-def cb_update_file():
-    file = st.session_state.w_file_upload
-    if file is not None:
-        try:
-            file.seek(0)
-            img = Image.open(file)
-            img.thumbnail((80, 80))
-            buffer = BytesIO()
-            img.save(buffer, format="JPEG", quality=70)
-            b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
-        except Exception:
-            pass
-
-
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (CHỈ TÊN VÀ ẢNH ĐẠI DIỆN)
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (XỬ LÝ DỮ LIỆU CỐ ĐỊNH)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 
-st.sidebar.text_input(
+# Nhập biệt danh (cập nhật trực tiếp vào session state)
+input_name = st.sidebar.text_input(
     "👤 Biệt danh của bạn:",
     value=st.session_state.user_name,
-    key="w_name_input",
-    on_change=cb_update_name,
 )
+if input_name and input_name != st.session_state.user_name:
+    st.session_state.user_name = input_name
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
-st.sidebar.file_uploader(
+# Tải ảnh từ thiết bị (lưu đệm dạng Base64 vĩnh viễn)
+uploaded_avatar = st.sidebar.file_uploader(
     "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
-    key="w_file_upload",
-    on_change=cb_update_file,
 )
+if uploaded_avatar is not None:
+    try:
+        uploaded_avatar.seek(0)
+        img = Image.open(uploaded_avatar)
+        img.thumbnail((80, 80))
+        buffer = BytesIO()
+        img.save(buffer, format="JPEG", quality=70)
+        b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
+        st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
+    except Exception:
+        pass
 
 user_name = st.session_state.user_name
 user_avatar = st.session_state.user_avatar
 
-# THÔNG TIN XEM TRƯỚC AVATAR DÙNG HIỆN TẠI
+# Hiển thị Avatar đang áp dụng
 st.sidebar.write("**Avatar đang dùng:**")
 if user_avatar.startswith("data:image"):
     st.sidebar.image(user_avatar, width=60)
@@ -167,8 +158,8 @@ with st.sidebar.expander("🔑 Khóa Bí Mật E2EE"):
 st.sidebar.markdown("---")
 st.sidebar.markdown("**👨‍💻 Tác giả:** N.Đ.K")
 
-# 7. TIÊU ĐỀ
-st.title("🔒 Anti KHANG KIÊN")
+# 7. TIÊU ĐỀ ỨNG DỤNG
+st.title("🔒 Tâm Sự Thầm Kín")
 st.caption("Trò chuyện bảo mật E2EE — Đồng bộ Real-time 1s siêu tốc.")
 st.divider()
 
