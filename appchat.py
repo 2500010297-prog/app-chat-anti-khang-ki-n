@@ -91,7 +91,7 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. BỘ NHỚ LƯU TRỮ VĨNH VIỄN (ĐỒNG BỘ TRỰC TIẾP URL & SESSION)
+# 5. BỘ NHỚ LƯU TRỮ VĨNH VIỄN (ĐỌC TỪ URL CHO CẢ MOBILE VA PC)
 query_params = st.query_params
 default_name = query_params.get("user", "User_Alpha")
 default_avatar = query_params.get("avatar", "👤")
@@ -130,11 +130,12 @@ input_name = st.sidebar.text_input(
 if input_name and input_name != st.session_state.PERMA_NAME:
     st.session_state.PERMA_NAME = input_name
     st.query_params["user"] = input_name
+    st.rerun()
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
-# Tải ảnh từ thiết bị & Nén tối ưu lưu vào URL
+# Tải ảnh từ thiết bị - Tối ưu nén siêu cấp cho Mobile URL
 uploaded_avatar = st.sidebar.file_uploader(
     "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
@@ -144,14 +145,17 @@ if uploaded_avatar is not None:
     try:
         uploaded_avatar.seek(0)
         img = Image.open(uploaded_avatar).convert("RGB")
-        img.thumbnail((60, 60))
+        # Nén nhỏ 40x40px với chất lượng 40% để chuỗi Base64 cực kỳ ngắn (< 800 bytes)
+        img.thumbnail((40, 40))
         buffer = BytesIO()
-        img.save(buffer, format="JPEG", quality=60)
+        img.save(buffer, format="JPEG", quality=40)
         b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
         avatar_url = f"data:image/jpeg;base64,{b64_img}"
 
-        st.session_state.PERMA_AVATAR = avatar_url
-        st.query_params["avatar"] = avatar_url
+        if st.session_state.PERMA_AVATAR != avatar_url:
+            st.session_state.PERMA_AVATAR = avatar_url
+            st.query_params["avatar"] = avatar_url
+            st.rerun()
     except Exception:
         pass
 
@@ -219,8 +223,7 @@ def render_chat_stream():
             )
             st.code(msg["cipher_text"], language="text")
 
-            is_media = bool(media_k)
-            btn_label = "🔓 Giải mã Media" if is_media else "🔓 Giải mã & Dịch"
+            btn_label = "🔓 Giải mã Nội dung"
 
             if st.button(btn_label, key=f"btn_{msg_id}"):
                 if msg_id in st.session_state.expanded_msgs:
@@ -229,7 +232,7 @@ def render_chat_stream():
                     st.session_state.expanded_msgs.add(msg_id)
 
                     if msg_id not in st.session_state.decrypted_cache:
-                        if is_media:
+                        if media_k:
                             raw_media = msg.get("raw_cipher_media")
                             if not raw_media and msg.get("id"):
                                 try:
@@ -270,8 +273,12 @@ def render_chat_stream():
 
             if msg_id in st.session_state.expanded_msgs:
                 cache = st.session_state.decrypted_cache.get(msg_id, {})
-                if is_media:
-                    st.write(f"📎 Tệp gốc: **{msg.get('file_name', '')}**")
+                if media_k:
+                    dec_file_info = decrypt_proportional(
+                        msg["cipher_text"], st.session_state.e2ee_key
+                    )
+                    st.write(f"💬 {dec_file_info}")
+
                     media_bytes = cache.get("media_data")
                     if media_bytes:
                         if media_k == "image":
@@ -351,10 +358,15 @@ with st.popover(
                     b64_file, st.session_state.e2ee_key
                 )
 
+                hidden_header = f"📎 Tệp đính kèm: {file_upload.name}"
+                cipher_header = encrypt_proportional(
+                    hidden_header, st.session_state.e2ee_key
+                )
+
                 msg_data = {
                     "sender_name": user_name,
                     "avatar": user_avatar,
-                    "cipher_text": f"🔒 [MEDIA {media_kind.upper()} ĐÃ MÃ HÓA E2EE: {file_upload.name}]",
+                    "cipher_text": cipher_header,
                     "raw_cipher_media": cipher_file,
                     "media_kind": media_kind,
                     "file_name": file_upload.name,
@@ -367,7 +379,7 @@ with st.popover(
                         supabase_client.table("messages").insert(
                             msg_data
                         ).execute()
-                        st.success("✅ Gửi Media thành công!")
+                        st.success("✅ Gửi đính kèm thành công!")
                     except Exception:
                         st.error("❌ Lỗi kết nối Cloud.")
 
