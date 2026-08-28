@@ -91,15 +91,19 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHÓA BỘ NHỚ VĨNH VIỄN (PERMANENT STORAGE ENGINE)
+# 5. BỘ NHỚ LƯU TRỮ VĨNH VIỄN (ĐỒNG BỘ TRỰC TIẾP URL & SESSION)
 query_params = st.query_params
 default_name = query_params.get("user", "User_Alpha")
+default_avatar = query_params.get("avatar", "👤")
 
 if "PERMA_NAME" not in st.session_state:
     st.session_state.PERMA_NAME = default_name
 
-if "PERMA_AVATAR" not in st.session_state:
-    st.session_state.PERMA_AVATAR = "👤"
+if (
+    "PERMA_AVATAR" not in st.session_state
+    or st.session_state.PERMA_AVATAR == "👤"
+):
+    st.session_state.PERMA_AVATAR = default_avatar
 
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
@@ -114,10 +118,10 @@ if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (KHÓA DỮ LIỆU CỐ ĐỊNH)
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH
 st.sidebar.title("⚙️ Thẻ Định Danh")
 
-# Nhập biệt danh & đồng bộ vào URL
+# Ô nhập biệt danh
 input_name = st.sidebar.text_input(
     "👤 Biệt danh của bạn:",
     value=st.session_state.PERMA_NAME,
@@ -130,7 +134,7 @@ if input_name and input_name != st.session_state.PERMA_NAME:
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
-# Tải ảnh từ thiết bị
+# Tải ảnh từ thiết bị & Nén tối ưu lưu vào URL
 uploaded_avatar = st.sidebar.file_uploader(
     "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
@@ -139,20 +143,22 @@ uploaded_avatar = st.sidebar.file_uploader(
 if uploaded_avatar is not None:
     try:
         uploaded_avatar.seek(0)
-        img = Image.open(uploaded_avatar)
-        img.thumbnail((80, 80))
+        img = Image.open(uploaded_avatar).convert("RGB")
+        img.thumbnail((60, 60))
         buffer = BytesIO()
-        img.save(buffer, format="JPEG", quality=70)
+        img.save(buffer, format="JPEG", quality=60)
         b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-        st.session_state.PERMA_AVATAR = f"data:image/jpeg;base64,{b64_img}"
+        avatar_url = f"data:image/jpeg;base64,{b64_img}"
+
+        st.session_state.PERMA_AVATAR = avatar_url
+        st.query_params["avatar"] = avatar_url
     except Exception:
         pass
 
-# Gán biến dữ liệu từ bộ nhớ VĨNH VIỄN
 user_name = st.session_state.PERMA_NAME
 user_avatar = st.session_state.PERMA_AVATAR
 
-# Hiển thị Avatar đang áp dụng
+# Hiển thị Avatar đang dùng
 st.sidebar.write("**Avatar đang dùng:**")
 if user_avatar.startswith("data:image"):
     st.sidebar.image(user_avatar, width=60)
