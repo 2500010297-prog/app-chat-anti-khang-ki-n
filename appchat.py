@@ -10,7 +10,7 @@ from supabase import create_client
 
 # 1. CẤU HÌNH GIAO DIỆN CYBER DARK CHUẨN
 st.set_page_config(
-    page_title="Anti KHANG KIÊN", page_icon="🔒", layout="centered"
+    page_title="Tâm Sự Thầm Kín", page_icon="🔒", layout="centered"
 )
 
 st.markdown(
@@ -91,12 +91,12 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. KHÓA CỨNG BỘ NHỚ ĐỊNH DẠNH (PERSISTENT STATE)
-if "saved_user_name" not in st.session_state:
-    st.session_state.saved_user_name = "User_Alpha"
+# 5. KHÓA CỨNG BỘ NHỚ TOÀN CỤC (CHỈ LƯU TÊN VÀ ẢNH TẢI LÊN)
+if "user_name" not in st.session_state:
+    st.session_state.user_name = "User_Alpha"
 
-if "saved_user_avatar" not in st.session_state:
-    st.session_state.saved_user_avatar = "🤖"
+if "user_avatar" not in st.session_state:
+    st.session_state.user_avatar = "👤"  # Avatar mặc định khi chưa tải ảnh
 
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
@@ -111,17 +111,13 @@ if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
 
-# HÀM CẬP NHẬT CHỈ CHẠY KHU BẠN CHỦ ĐỘNG THAY ĐỔI
-def on_name_change():
-    st.session_state.saved_user_name = st.session_state.widget_name_input
+# CALLBACK CẬP NHẬT TÊN VÀ ẢNH
+def cb_update_name():
+    st.session_state.user_name = st.session_state.w_name_input
 
 
-def on_emoji_change():
-    st.session_state.saved_user_avatar = st.session_state.widget_emoji_select
-
-
-def on_file_upload_change():
-    file = st.session_state.widget_file_upload
+def cb_update_file():
+    file = st.session_state.w_file_upload
     if file is not None:
         try:
             file.seek(0)
@@ -130,59 +126,35 @@ def on_file_upload_change():
             buffer = BytesIO()
             img.save(buffer, format="JPEG", quality=70)
             b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-            st.session_state.saved_user_avatar = f"data:image/jpeg;base64,{b64_img}"
+            st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
         except Exception:
             pass
 
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (KHÓA CỨNG DỮ LIỆU)
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (CHỈ TÊN VÀ ẢNH ĐẠI DIỆN)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 
 st.sidebar.text_input(
     "👤 Biệt danh của bạn:",
-    value=st.session_state.saved_user_name,
-    key="widget_name_input",
-    on_change=on_name_change,
+    value=st.session_state.user_name,
+    key="w_name_input",
+    on_change=cb_update_name,
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🎨 Cấu hình Avatar")
-
-st.sidebar.selectbox(
-    "🎭 Chọn biểu tượng Emoji:",
-    [
-        "🤖",
-        "👾",
-        "🧠",
-        "🔮",
-        "🥷",
-        "🦊",
-        "👑",
-        "🔥",
-        "🦄",
-        "🐱",
-        "🐶",
-        "🐼",
-        "🦁",
-        "🚀",
-        "🛡️",
-        "😎",
-    ],
-    key="widget_emoji_select",
-    on_change=on_emoji_change,
-)
+st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
 st.sidebar.file_uploader(
-    "📤 Tải ảnh từ thiết bị:",
+    "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
-    key="widget_file_upload",
-    on_change=on_file_upload_change,
+    key="w_file_upload",
+    on_change=cb_update_file,
 )
 
-# GÁN NỘI DUNG ĐÃ KHÓA CỨNG CỦA NGUỜI DÙNG
-user_name = st.session_state.saved_user_name
-user_avatar = st.session_state.saved_user_avatar
+user_name = st.session_state.user_name
+user_avatar = st.session_state.user_avatar
 
+# THÔNG TIN XEM TRƯỚC AVATAR DÙNG HIỆN TẠI
 st.sidebar.write("**Avatar đang dùng:**")
 if user_avatar.startswith("data:image"):
     st.sidebar.image(user_avatar, width=60)
@@ -233,7 +205,7 @@ def render_chat_stream():
     for msg in all_messages:
         msg_id = msg.get("id") or msg.get("cipher_text")
         sender = msg.get("sender_name", "Ẩn danh")
-        avatar = msg.get("avatar", "🤖")
+        avatar = msg.get("avatar", "👤")
         media_k = msg.get("media_kind")
 
         with st.chat_message(sender, avatar=avatar):
