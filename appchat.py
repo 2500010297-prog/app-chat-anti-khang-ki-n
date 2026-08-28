@@ -91,12 +91,15 @@ def async_send_to_supabase(data):
             pass
 
 
-# 5. BỘ NHỚ LƯU TRỮ ĐỘC LẬP (KHÔNG BỊ XÓA KHI ĐÓNG/MỞ SIDEBAR)
-if "user_name" not in st.session_state:
-    st.session_state.user_name = "User_Alpha"
+# 5. KHÓA BỘ NHỚ VĨNH VIỄN (PERMANENT STORAGE ENGINE)
+query_params = st.query_params
+default_name = query_params.get("user", "User_Alpha")
 
-if "user_avatar" not in st.session_state:
-    st.session_state.user_avatar = "👤"
+if "PERMA_NAME" not in st.session_state:
+    st.session_state.PERMA_NAME = default_name
+
+if "PERMA_AVATAR" not in st.session_state:
+    st.session_state.PERMA_AVATAR = "👤"
 
 if "e2ee_key" not in st.session_state:
     st.session_state.e2ee_key = "SecretKey_CyberVault_2026"
@@ -111,24 +114,27 @@ if "optimistic_msgs" not in st.session_state:
     st.session_state.optimistic_msgs = []
 
 
-# 6. SIDEBAR - THẺ ĐỊNH DẠNH (XỬ LÝ DỮ LIỆU CỐ ĐỊNH)
+# 6. SIDEBAR - THẺ ĐỊNH DẠNH (KHÓA DỮ LIỆU CỐ ĐỊNH)
 st.sidebar.title("⚙️ Thẻ Định Danh")
 
-# Nhập biệt danh (cập nhật trực tiếp vào session state)
+# Nhập biệt danh & đồng bộ vào URL
 input_name = st.sidebar.text_input(
     "👤 Biệt danh của bạn:",
-    value=st.session_state.user_name,
+    value=st.session_state.PERMA_NAME,
+    key="widget_name_input",
 )
-if input_name and input_name != st.session_state.user_name:
-    st.session_state.user_name = input_name
+if input_name and input_name != st.session_state.PERMA_NAME:
+    st.session_state.PERMA_NAME = input_name
+    st.query_params["user"] = input_name
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🖼️ Tải ảnh đại diện")
 
-# Tải ảnh từ thiết bị (lưu đệm dạng Base64 vĩnh viễn)
+# Tải ảnh từ thiết bị
 uploaded_avatar = st.sidebar.file_uploader(
     "📤 Chọn ảnh từ thiết bị (PNG, JPG):",
     type=["png", "jpg", "jpeg"],
+    key="widget_file_upload",
 )
 if uploaded_avatar is not None:
     try:
@@ -138,12 +144,13 @@ if uploaded_avatar is not None:
         buffer = BytesIO()
         img.save(buffer, format="JPEG", quality=70)
         b64_img = base64.b64encode(buffer.getvalue()).decode("utf-8")
-        st.session_state.user_avatar = f"data:image/jpeg;base64,{b64_img}"
+        st.session_state.PERMA_AVATAR = f"data:image/jpeg;base64,{b64_img}"
     except Exception:
         pass
 
-user_name = st.session_state.user_name
-user_avatar = st.session_state.user_avatar
+# Gán biến dữ liệu từ bộ nhớ VĨNH VIỄN
+user_name = st.session_state.PERMA_NAME
+user_avatar = st.session_state.PERMA_AVATAR
 
 # Hiển thị Avatar đang áp dụng
 st.sidebar.write("**Avatar đang dùng:**")
